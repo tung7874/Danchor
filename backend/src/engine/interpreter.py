@@ -39,8 +39,34 @@ def stability_text(label: str) -> str:
 
 def action_suggestion(p25: float, p50: float, stability_label: str) -> list:
     if p25 > 0 and stability_label == "Stable":
-        return ["可考慮進場", "具備穩定優勢"]
+        return ["統計上呈穩定正報酬", "各市場環境表現一致"]
     elif p50 > 0:
-        return ["可觀察", "需搭配趨勢"]
+        return ["統計上偏正報酬", "受市場環境影響較明顯"]
     else:
-        return ["不建議進場", "風險高於報酬"]
+        return ["統計上報酬偏弱", "歷史參考價值有限"]
+
+
+def generate_analysis_text(p25: float, p50: float, p75: float, cv: float) -> str:
+    # ① 期望（3類）
+    if p25 > 0:
+        exp = "整體呈現穩定正報酬特性"
+    elif p50 > 0:
+        exp = "整體呈現小幅正報酬傾向"
+    else:
+        exp = "整體報酬表現偏弱"
+
+    # ② 穩定性（3類，依 CV）
+    if cv < 0.5:
+        stability = "且在不同市場階段表現一致"
+    elif cv < 1.5:
+        stability = "但報酬表現受市場環境影響較大"
+    else:
+        stability = "且歷史報酬分布差異較大"
+
+    # ③ 風險（2類）
+    risk = "整體下行風險相對可控" if p25 > -2 else "需留意潛在下行風險"
+
+    # ④ 上行（2類）
+    upside = "並具備一定上行延伸空間" if p75 > abs(p25) else "上行空間相對有限"
+
+    return f"{exp}，{stability}，{risk}，{upside}。"

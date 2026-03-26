@@ -23,6 +23,7 @@ type AnalysisResult = {
   insight: string;
   distribution_text: string[];
   stability_text: string;
+  analysis_text: string;
   action: string[];
 };
 
@@ -122,18 +123,16 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
 
         {data && !loading && (
           <>
-            {/* Decision block */}
+            {/* Analysis text block */}
             <div className="rounded-[14px] bg-[#1C1C1E] px-5 py-4 animate-fade-up">
               <p className="text-white/40 text-[11px] uppercase tracking-wider mb-3">統計分析</p>
+              {data.analysis_text && (
+                <p className="text-white/70 text-[14px] leading-relaxed mb-3">{data.analysis_text}</p>
+              )}
               <div className="flex gap-2 flex-wrap">
                 {data.action?.map((a) => (
-                  <span key={a} className="px-4 py-1.5 rounded-full bg-white/15 text-white text-[13px] font-medium">
+                  <span key={a} className="px-3 py-1 rounded-full bg-white/10 text-white/60 text-[12px]">
                     {a}
-                  </span>
-                ))}
-                {data.distribution_text?.map((t) => (
-                  <span key={t} className="px-4 py-1.5 rounded-full bg-white/[0.06] text-white/50 text-[13px]">
-                    {t}
                   </span>
                 ))}
               </div>

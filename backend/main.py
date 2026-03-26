@@ -14,7 +14,8 @@ from src.engine.stability import StabilityAnalyzer
 from src.part2.position_analyzer import PositionAnalyzer
 from src.engine.scanner import EdgeScanner
 from src.engine.interpreter import (
-    decision_summary, quick_insight, distribution_text, stability_text, action_suggestion
+    decision_summary, quick_insight, distribution_text, stability_text,
+    action_suggestion, generate_analysis_text
 )
 
 app = FastAPI(title="Decision Anchor API", version="1.0.0")
@@ -122,6 +123,7 @@ def analyze(req: AnalyzeRequest):
             "distribution_text": distribution_text(p25, p50, p75),
             "stability_text": stability_text(stab_label),
             "action": action_suggestion(p25, p50, stab_label),
+            "analysis_text": generate_analysis_text(p25, p50, p75, stability_result.get("cv", 1.0)),
         }
     except HTTPException:
         raise

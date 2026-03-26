@@ -1,3 +1,4 @@
+import time
 import yfinance as yf
 import pandas as pd
 import sqlite3
@@ -52,8 +53,19 @@ class DataFetcher:
 
     def _download_and_store(self, ticker: str) -> pd.DataFrame:
         print(f"[Fetcher] Downloading {ticker} from yfinance...")
-        t = yf.Ticker(ticker)
-        df = t.history(start="2015-01-01", auto_adjust=True)
+        df = pd.DataFrame()
+        for attempt in range(3):
+            try:
+                t = yf.Ticker(ticker)
+                df = t.history(start="2015-01-01", auto_adjust=True)
+                if not df.empty:
+                    break
+            except Exception as e:
+                print(f"[Fetcher] Attempt {attempt + 1} failed: {e}")
+                if attempt < 2:
+                    time.sleep(4 * (attempt + 1))
+                else:
+                    raise
 
         if df.empty:
             print(f"[Fetcher] No data for {ticker}")

@@ -220,13 +220,15 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
                     <span>波動</span>
                     <span>穩定</span>
                   </div>
-                  <div className="relative h-2 rounded-full bg-white/10">
+                  <div className="relative h-5 rounded-full bg-white/10 flex items-center">
                     <div
                       className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-[#FF4444] via-[#FFB800] to-[#00C851]"
                       style={{ width: `${Math.max(4, Math.min(100, (1 - data.stability.cv / 2) * 100))}%` }}
                     />
+                    <span className="absolute inset-0 flex items-center justify-center text-[11px] font-mono text-white/70 z-10">
+                      CV = {data.stability.cv}
+                    </span>
                   </div>
-                  <p className="text-white/25 text-[11px] font-mono mt-1.5 text-right">CV = {data.stability.cv}</p>
                 </div>
               )}
             </div>

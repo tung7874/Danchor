@@ -52,12 +52,19 @@ class StabilityAnalyzer:
         total_years = len(means)
         sign_ratio = max(positive_years, total_years - positive_years) / total_years
 
+        best = round(float(np.max(means)), 2)
+        worst = round(float(np.min(means)), 2)
+        neg_years = int(total_years - positive_years)
+
         if cv < 0.6 and sign_ratio >= 0.75:
-            return "Stable", "各年份報酬分布一致，歷史表現穩定", cv_r
+            reason = f"各年份報酬一致（CV={cv_r}），最佳 +{best}% / 最差 {worst}%，{neg_years} 個負報酬年"
+            return "Stable", reason, cv_r
         elif cv < 1.5 or sign_ratio >= 0.6:
-            return "Regime-Dependent", "報酬特徵與市場環境高度相關，需評估當前環境適配度", cv_r
+            reason = f"報酬隨市場環境波動（CV={cv_r}），最佳 +{best}% / 最差 {worst}%，{neg_years} 個負報酬年"
+            return "Regime-Dependent", reason, cv_r
         else:
-            return "Unstable", "歷史表現高度波動，過去統計特徵在未來可能不可靠", cv_r
+            reason = f"報酬高度不穩定（CV={cv_r}），最佳 +{best}% / 最差 {worst}%，{neg_years} 個負報酬年"
+            return "Unstable", reason, cv_r
 
     def _build_periods(self, df: pd.DataFrame) -> list:
         df = df.copy()

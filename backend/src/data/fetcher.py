@@ -52,7 +52,8 @@ class DataFetcher:
 
     def _download_and_store(self, ticker: str) -> pd.DataFrame:
         print(f"[Fetcher] Downloading {ticker} from yfinance...")
-        df = yf.download(ticker, start="2015-01-01", auto_adjust=True, progress=False)
+        t = yf.Ticker(ticker)
+        df = t.history(start="2015-01-01", auto_adjust=True)
 
         if df.empty:
             print(f"[Fetcher] No data for {ticker}")

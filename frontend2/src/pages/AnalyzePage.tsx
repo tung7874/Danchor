@@ -220,15 +220,27 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
                     <span>波動</span>
                     <span>穩定</span>
                   </div>
-                  <div className="relative h-5 rounded-full bg-white/10 flex items-center">
-                    <div
-                      className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-[#FF4444] via-[#FFB800] to-[#00C851]"
-                      style={{ width: `${Math.max(4, Math.min(100, (1 - data.stability.cv / 2) * 100))}%` }}
-                    />
-                    <span className="absolute inset-0 flex items-center justify-center text-[11px] font-mono text-white/70 z-10">
-                      CV = {data.stability.cv}
-                    </span>
-                  </div>
+                  {(() => {
+                    const pct = Math.max(3, Math.min(97, (1 - data.stability.cv / 2) * 100));
+                    return (
+                      <div className="relative pt-1 pb-5">
+                        {/* Track */}
+                        <div className="h-1.5 rounded-full bg-gradient-to-r from-[#FF4444] via-[#FFB800] to-[#00C851] opacity-30" />
+                        {/* Thumb */}
+                        <div
+                          className="absolute top-0 w-4 h-4 rounded-full bg-white shadow-md -translate-x-1/2"
+                          style={{ left: `${pct}%` }}
+                        />
+                        {/* CV label below thumb */}
+                        <div
+                          className="absolute top-5 text-[11px] font-mono text-white/50 -translate-x-1/2 whitespace-nowrap"
+                          style={{ left: `${pct}%` }}
+                        >
+                          CV {data.stability.cv}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </div>

@@ -15,8 +15,9 @@ from src.part2.position_analyzer import PositionAnalyzer
 from src.engine.scanner import EdgeScanner
 from src.engine.interpreter import (
     decision_summary, quick_insight, distribution_text, stability_text,
-    action_suggestion, generate_analysis_text
+    action_suggestion, generate_analysis_text, state_dependency_text
 )
+from src.engine.state_dependency import StateDependencyAnalyzer
 
 app = FastAPI(title="Decision Anchor API", version="1.0.0")
 
@@ -36,6 +37,7 @@ dist_calc = DistributionCalculator()
 stability = StabilityAnalyzer()
 position_analyzer = PositionAnalyzer()
 edge_scanner = EdgeScanner()
+dep_analyzer = StateDependencyAnalyzer()
 
 
 class AnalyzeRequest(BaseModel):
@@ -124,6 +126,7 @@ def analyze(req: AnalyzeRequest):
             "stability_text": stability_text(stab_label),
             "action": action_suggestion(p25, p50, stab_label),
             "analysis_text": generate_analysis_text(p25, p50, p75, stability_result.get("cv", 1.0)),
+            "state_dependency": _build_dependency(df, state_info["state"], req.holding_horizon_days),
         }
     except HTTPException:
         raise
@@ -195,6 +198,14 @@ def list_assets():
         {"code": "2412", "name": "中華電"},
     ]
     return {"assets": popular}
+
+
+def _build_dependency(df, state: str, horizon: int) -> dict | None:
+    result = dep_analyzer.analyze(df, state, horizon)
+    if result is None:
+        return None
+    result["text"] = state_dependency_text(result["label"])
+    return result
 
 
 def _confidence_label(n: int) -> str:

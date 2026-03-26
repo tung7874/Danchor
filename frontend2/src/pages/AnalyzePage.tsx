@@ -25,6 +25,15 @@ type AnalysisResult = {
   stability_text: string;
   analysis_text: string;
   action: string[];
+  state_dependency: {
+    label: string;
+    diff: number;
+    up_return: number;
+    down_return: number;
+    up_count: number;
+    down_count: number;
+    text: string;
+  } | null;
 };
 
 interface Props {
@@ -198,51 +207,39 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
             </div>
 
             {/* Stability */}
-            <div className="rounded-2xl bg-[#1C1C1E] p-5 animate-fade-up">
-              <div className="flex justify-between items-center mb-3">
-                <h2 className="text-white font-semibold">穩定性評估</h2>
-                <span
-                  className="text-xs font-semibold px-2.5 py-1 rounded-full"
-                  style={{
-                    color: stabilityColor[data.stability.classification],
-                    background: stabilityColor[data.stability.classification] + "22",
-                    border: `1px solid ${stabilityColor[data.stability.classification]}44`,
-                  }}
-                >
-                  {stabilityLabel[data.stability.classification] ?? data.stability.classification}
-                </span>
-              </div>
-              <p className="text-white/50 text-[13px] leading-relaxed mb-4">{data.stability_text || data.stability.reason}</p>
-              {data.stability.cv !== undefined && (
-                <div>
-                  <div className="flex justify-between text-[11px] text-white/30 mb-1.5">
-                    <span>波動</span>
-                    <span>穩定</span>
-                  </div>
-                  {(() => {
-                    const pct = Math.max(3, Math.min(97, (1 - data.stability.cv / 2) * 100));
-                    return (
-                      <div className="relative pt-1 pb-5">
-                        {/* Track */}
-                        <div className="h-1.5 rounded-full bg-gradient-to-r from-[#FF4444] via-[#FFB800] to-[#00C851] opacity-30" />
-                        {/* Thumb */}
-                        <div
-                          className="absolute top-0 w-4 h-4 rounded-full bg-white shadow-md -translate-x-1/2"
-                          style={{ left: `${pct}%` }}
-                        />
-                        {/* CV label below thumb */}
-                        <div
-                          className="absolute top-5 text-[11px] font-mono text-white/50 -translate-x-1/2 whitespace-nowrap"
-                          style={{ left: `${pct}%` }}
-                        >
-                          CV {data.stability.cv}
-                        </div>
-                      </div>
-                    );
-                  })()}
+            {data.state_dependency && (
+              <div className="rounded-2xl bg-[#1C1C1E] p-5 animate-fade-up">
+                <div className="flex justify-between items-center mb-3">
+                  <h2 className="text-white font-semibold">市場依賴程度</h2>
+                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+                    data.state_dependency.label === "高度依賴"
+                      ? "bg-[#FF4444]/20 text-[#FF4444]"
+                      : data.state_dependency.label === "中度依賴"
+                      ? "bg-[#FFB800]/20 text-[#FFB800]"
+                      : "bg-[#00C851]/20 text-[#00C851]"
+                  }`}>
+                    {data.state_dependency.label}
+                  </span>
                 </div>
-              )}
-            </div>
+                <p className="text-white/50 text-[13px] leading-relaxed mb-4">{data.state_dependency.text}</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-[#2C2C2E] rounded-xl p-3 text-center">
+                    <p className="text-white/30 text-[11px] mb-1">上升市場均值</p>
+                    <p className={`text-[17px] font-bold font-mono ${data.state_dependency.up_return >= 0 ? "text-[#00C851]" : "text-[#FF4444]"}`}>
+                      {data.state_dependency.up_return > 0 ? "+" : ""}{data.state_dependency.up_return}%
+                    </p>
+                    <p className="text-white/20 text-[10px] mt-0.5">N={data.state_dependency.up_count}</p>
+                  </div>
+                  <div className="bg-[#2C2C2E] rounded-xl p-3 text-center">
+                    <p className="text-white/30 text-[11px] mb-1">下跌市場均值</p>
+                    <p className={`text-[17px] font-bold font-mono ${data.state_dependency.down_return >= 0 ? "text-[#00C851]" : "text-[#FF4444]"}`}>
+                      {data.state_dependency.down_return > 0 ? "+" : ""}{data.state_dependency.down_return}%
+                    </p>
+                    <p className="text-white/20 text-[10px] mt-0.5">N={data.state_dependency.down_count}</p>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Periods */}
             {data.stability.periods?.length > 0 && (

@@ -6,8 +6,12 @@ class Preprocessor:
     def calculate_indicators(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()
 
-        # SMA 50 — trend indicator
+        # SMA 50 — trend indicator (used in state)
         df["SMA_50"] = df["Close"].rolling(window=50, min_periods=50).mean()
+
+        # SMA 200 — long-term market trend (used in dependency, independent of state)
+        df["SMA_200"] = df["Close"].rolling(window=200, min_periods=150).mean()
+        df["market_trend"] = np.where(df["Close"] > df["SMA_200"], "up", "down")
 
         # 20-day high/low for relative position
         df["High_20"] = df["High"].rolling(window=20, min_periods=20).max()

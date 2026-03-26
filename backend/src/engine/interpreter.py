@@ -37,6 +37,14 @@ def stability_text(label: str) -> str:
     }.get(label, "")
 
 
+def state_dependency_text(label: str) -> str:
+    return {
+        "高度依賴": "此條件在市場上升時表現明顯較佳，對市場趨勢依賴較高",
+        "中度依賴": "此條件在不同市場環境下表現略有差異，與市場走勢存在一定關聯",
+        "低依賴": "此條件在不同市場環境下表現相對一致，未明顯依賴市場方向",
+    }.get(label, "資料不足，無法判斷")
+
+
 def action_suggestion(p25: float, p50: float, stability_label: str) -> list:
     if p25 > 0 and stability_label == "Stable":
         return ["統計上呈穩定正報酬", "各市場環境表現一致"]

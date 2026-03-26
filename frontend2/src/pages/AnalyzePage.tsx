@@ -146,13 +146,14 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
               </div>
               <div className="flex gap-2 mb-3">
                 {[
-                  { l: "位置", v: { High: "近高點", Mid: "中性", Low: "近低點" }[data.state.components.relative_position] ?? data.state.components.relative_position },
-                  { l: "動能", v: { Strong: "強勁", Neutral: "中性", Weak: "疲弱" }[data.state.components.momentum] ?? data.state.components.momentum },
-                  { l: "趨勢", v: { Bull: "多頭", Bear: "空頭" }[data.state.components.trend] ?? data.state.components.trend },
+                  { l: "位置", v: { High: "近高點", Mid: "中性", Low: "近低點" }[data.state.components.relative_position] ?? data.state.components.relative_position, sub: { High: "區間偏高", Mid: "走勢平穩", Low: "區間偏低" }[data.state.components.relative_position] },
+                  { l: "動能", v: { Strong: "強動能", Neutral: "中性", Weak: "弱動能" }[data.state.components.momentum] ?? data.state.components.momentum, sub: { Strong: "上漲趨勢", Neutral: "走勢平穩", Weak: "下跌轉弱" }[data.state.components.momentum] },
+                  { l: "趨勢", v: { Bull: "多頭", Bear: "空頭" }[data.state.components.trend] ?? data.state.components.trend, sub: { Bull: "上升趨勢", Bear: "下降趨勢" }[data.state.components.trend] },
                 ].map((item) => (
-                  <div key={item.l} className="flex-1 rounded-xl bg-[#2C2C2E] px-2 py-2 text-center">
-                    <p className="text-[#555] text-xs mb-0.5">{item.l}</p>
-                    <p className="text-white text-sm font-semibold">{item.v}</p>
+                  <div key={item.l} className="flex-1 rounded-xl bg-[#2C2C2E] px-2 py-2.5 text-center">
+                    <p className="text-[#555] text-[10px] mb-0.5">{item.l}</p>
+                    <p className="text-white text-[13px] font-semibold">{item.v}</p>
+                    {item.sub && <p className="text-white/30 text-[10px] mt-0.5">{item.sub}</p>}
                   </div>
                 ))}
               </div>
@@ -184,9 +185,9 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
               <DistributionBar p25={p25} p50={p50} p75={p75} />
 
               <div className="grid grid-cols-3 gap-3 mt-4">
-                <StatBox label="P25 下行" value={p25} />
-                <StatBox label="P50 中位" value={p50} highlight />
-                <StatBox label="P75 上行" value={p75} />
+                <StatBox label="P25" sub="較差情況" value={p25} />
+                <StatBox label="P50" sub="平均情況" value={p50} highlight />
+                <StatBox label="P75" sub="較好情況" value={p75} />
               </div>
 
               <div className="mt-3 pt-3 border-t border-white/[0.06] flex justify-between">
@@ -286,11 +287,12 @@ function DistributionBar({ p25, p50, p75 }: { p25: number; p50: number; p75: num
   );
 }
 
-function StatBox({ label, value, highlight }: { label: string; value: number; highlight?: boolean }) {
+function StatBox({ label, sub, value, highlight }: { label: string; sub?: string; value: number; highlight?: boolean }) {
   const color = value > 0 ? "#00C851" : value < 0 ? "#FF4444" : "#888";
   return (
     <div className={`rounded-xl p-3 text-center ${highlight ? "bg-white/5 border border-white/10" : "bg-[#2C2C2E]"}`}>
-      <p className="text-[#555] text-xs mb-1">{label}</p>
+      <p className="text-[#555] text-[11px]">{label}</p>
+      {sub && <p className="text-white/25 text-[10px] mb-1">{sub}</p>}
       <p className="font-mono font-bold text-base" style={{ color }}>
         {value > 0 ? "+" : ""}{value}%
       </p>

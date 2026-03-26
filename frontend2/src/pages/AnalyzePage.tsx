@@ -15,9 +15,15 @@ type AnalysisResult = {
   stability: {
     classification: string;
     reason: string;
+    cv: number;
     periods: { label: string; mean: number; count: number }[];
   };
   confidence: string;
+  decision: string;
+  insight: string;
+  distribution_text: string[];
+  stability_text: string;
+  action: string[];
 };
 
 interface Props {
@@ -116,6 +122,22 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
 
         {data && !loading && (
           <>
+            {/* Decision Summary */}
+            <div className="rounded-[14px] bg-[#1C1C1E] p-5 animate-fade-up">
+              <p className="text-white/40 text-[11px] uppercase tracking-wider mb-2">決策摘要</p>
+              <p className="text-white text-[20px] font-bold mb-1">{data.decision}</p>
+              <p className="text-white/50 text-[14px]">{data.insight}</p>
+              {data.action.length > 0 && (
+                <div className="flex gap-2 mt-3 flex-wrap">
+                  {data.action.map((a) => (
+                    <span key={a} className="px-3 py-1 rounded-full bg-white/10 text-white/70 text-[12px] font-medium">
+                      {a}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* State card */}
             <div className="rounded-2xl bg-[#1C1C1E] p-5 animate-fade-up">
               <div className="flex justify-between items-center mb-3">
@@ -173,6 +195,15 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
                   {n} 次
                 </span>
               </div>
+              {data.distribution_text?.length > 0 && (
+                <div className="mt-3 flex gap-2 flex-wrap">
+                  {data.distribution_text.map((t) => (
+                    <span key={t} className="text-[11px] text-white/50 bg-white/[0.06] px-2.5 py-1 rounded-full">
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Stability */}
@@ -190,7 +221,10 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
                   {stabilityLabel[data.stability.classification] ?? data.stability.classification}
                 </span>
               </div>
-              <p className="text-[#888] text-sm leading-relaxed">{data.stability.reason}</p>
+              <p className="text-white/50 text-[13px] leading-relaxed mb-2">{data.stability_text || data.stability.reason}</p>
+              {data.stability.cv !== undefined && (
+                <p className="text-white/25 text-[11px] font-mono">CV = {data.stability.cv}</p>
+              )}
             </div>
 
             {/* Periods */}

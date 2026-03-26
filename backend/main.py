@@ -13,6 +13,9 @@ from src.engine.distribution import DistributionCalculator
 from src.engine.stability import StabilityAnalyzer
 from src.part2.position_analyzer import PositionAnalyzer
 from src.engine.scanner import EdgeScanner
+from src.engine.interpreter import (
+    decision_summary, quick_insight, distribution_text, stability_text, action_suggestion
+)
 
 app = FastAPI(title="Decision Anchor API", version="1.0.0")
 
@@ -92,20 +95,32 @@ def analyze(req: AnalyzeRequest):
         # 5. Stability analysis
         stability_result = stability.analyze(distribution["events"])
 
+        p25 = round(distribution["P25"], 2)
+        p50 = round(distribution["P50"], 2)
+        p75 = round(distribution["P75"], 2)
+        stab_label = stability_result["classification"]
+        momentum = state_info["components"]["momentum"]
+        trend = state_info["components"]["trend"]
+
         return {
             "asset_code": req.asset_code,
             "analysis_date": analysis_date,
             "holding_horizon_days": req.holding_horizon_days,
             "state": state_info,
             "distribution": {
-                "P25": round(distribution["P25"], 2),
-                "P50": round(distribution["P50"], 2),
-                "P75": round(distribution["P75"], 2),
+                "P25": p25,
+                "P50": p50,
+                "P75": p75,
                 "N": distribution["N"],
                 "data_range": distribution["data_range"],
             },
             "stability": stability_result,
             "confidence": _confidence_label(distribution["N"]),
+            "decision": decision_summary(p25, p50, stab_label),
+            "insight": quick_insight(momentum, trend),
+            "distribution_text": distribution_text(p25, p50, p75),
+            "stability_text": stability_text(stab_label),
+            "action": action_suggestion(p25, p50, stab_label),
         }
     except HTTPException:
         raise

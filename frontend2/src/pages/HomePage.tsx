@@ -17,108 +17,113 @@ interface Props {
 }
 
 export default function HomePage({ onNavigate }: Props) {
-  const [tab, setTab] = useState<"part1" | "part2">("part1");
+  const [tab, setTab] = useState<"analyze" | "coming">("analyze");
   const [code, setCode] = useState("");
   const [days, setDays] = useState(10);
-
-  // Part 2
-  const [entryDate, setEntryDate] = useState("");
-  const [entryPrice, setEntryPrice] = useState("");
-  const [currentPrice, setCurrentPrice] = useState("");
-
-  const pnl =
-    entryPrice && currentPrice
-      ? ((Number(currentPrice) - Number(entryPrice)) / Number(entryPrice)) * 100
-      : null;
 
   function handleAnalyze() {
     if (!code.trim()) return;
     onNavigate({ name: "analyze", code: code.trim().toUpperCase(), days });
   }
 
-  function handlePosition() {
-    if (!code.trim() || !entryDate || !entryPrice || !currentPrice) return;
-    onNavigate({
-      name: "position",
-      code: code.trim().toUpperCase(),
-      entryDate,
-      entryPrice: Number(entryPrice),
-      currentPrice: Number(currentPrice),
-    });
+  function handleScan() {
+    if (!code.trim()) return;
+    onNavigate({ name: "scan", code: code.trim().toUpperCase(), days });
   }
 
   return (
     <div
-      className="flex flex-col min-h-dvh bg-[#0D0D0D] px-4 pb-8"
-      style={{ paddingTop: "max(24px, env(safe-area-inset-top))" }}
+      className="flex flex-col min-h-dvh bg-black px-4 pb-10"
+      style={{
+        paddingTop: "max(20px, env(safe-area-inset-top))",
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif",
+      }}
     >
       {/* Header */}
-      <div className="mb-8">
-        <p className="text-[#555] text-xs tracking-widest uppercase mb-1">Decision Anchor</p>
-        <h1 className="text-2xl font-bold tracking-tight">決策錨點</h1>
-        <p className="text-[#555] text-sm mt-1">條件報酬分布 · 歷史統計評估</p>
+      <div className="mb-7">
+        <p className="text-white/30 text-[11px] tracking-widest uppercase mb-1">Decision Anchor</p>
+        <h1 className="text-[28px] font-bold tracking-tight text-white">決策錨點</h1>
+        <p className="text-white/40 text-[13px] mt-0.5">條件報酬分布 · 歷史統計</p>
       </div>
 
-      {/* Tab */}
-      <div className="flex rounded-xl bg-[#1A1A1A] p-1 mb-5">
-        {(["part1", "part2"] as const).map((t) => (
+      {/* Segmented Control */}
+      <div className="flex rounded-[10px] bg-[#1C1C1E] p-[3px] mb-6 gap-[3px]">
+        {([
+          { key: "analyze", label: "進場驗證" },
+          { key: "coming", label: "持倉評估" },
+        ] as const).map((t) => (
           <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${
-              tab === t ? "bg-[#00D4FF] text-black" : "text-[#666]"
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className={`flex-1 py-[7px] rounded-[8px] text-[13px] font-medium transition-all duration-200 ${
+              tab === t.key
+                ? "bg-[#2C2C2E] text-white shadow-sm"
+                : "text-white/40"
             }`}
           >
-            {t === "part1" ? "進場驗證" : "持倉評估"}
+            {t.label}
           </button>
         ))}
       </div>
 
-      {/* Code Input */}
-      <div className="mb-4">
-        <label className="text-xs text-[#555] mb-2 block tracking-wide uppercase">股票代碼</label>
-        <input
-          type="text"
-          value={code}
-          onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-          placeholder="例：2330"
-          inputMode="numeric"
-          maxLength={6}
-          className="w-full bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl px-4 py-4 text-white text-xl font-mono tracking-widest focus:border-[#00D4FF] outline-none"
-        />
-      </div>
-
-      {/* Popular chips */}
-      <div className="flex gap-2 flex-wrap mb-5">
-        {POPULAR.map((s) => (
-          <button
-            key={s.code}
-            onClick={() => setCode(s.code)}
-            className={`px-3 py-1.5 rounded-lg text-xs border transition-all ${
-              code === s.code
-                ? "border-[#00D4FF] text-[#00D4FF] bg-[#00D4FF]/10"
-                : "border-[#2A2A2A] text-[#777]"
-            }`}
-          >
-            {s.code} {s.name}
-          </button>
-        ))}
-      </div>
-
-      {/* Part 1 */}
-      {tab === "part1" && (
+      {tab === "coming" ? (
+        <div className="flex-1 flex flex-col items-center justify-center pb-20">
+          <div className="w-16 h-16 rounded-2xl bg-[#1C1C1E] flex items-center justify-center mb-5">
+            <svg width="28" height="28" fill="none" viewBox="0 0 24 24">
+              <rect x="3" y="11" width="18" height="11" rx="2" stroke="white" strokeOpacity="0.3" strokeWidth="1.8" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="white" strokeOpacity="0.3" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </div>
+          <p className="text-white font-semibold text-[17px] mb-2">持倉評估</p>
+          <p className="text-white/40 text-[14px] text-center leading-relaxed">
+            功能開發中<br />敬請期待
+          </p>
+        </div>
+      ) : (
         <>
-          <div className="mb-6">
-            <label className="text-xs text-[#555] mb-3 block uppercase tracking-wide">持有天數</label>
+          {/* Stock Input */}
+          <div className="mb-4">
+            <label className="text-white/40 text-[12px] mb-2 block uppercase tracking-wider">股票代碼</label>
+            <input
+              type="text"
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+              placeholder="例：2330"
+              inputMode="numeric"
+              maxLength={6}
+              className="w-full bg-[#1C1C1E] rounded-[12px] px-4 py-[14px] text-white text-[22px] font-mono tracking-widest focus:ring-1 focus:ring-[#00D4FF] outline-none border border-transparent focus:border-[#00D4FF]/30 transition-all"
+            />
+          </div>
+
+          {/* Popular chips */}
+          <div className="flex gap-2 flex-wrap mb-6">
+            {POPULAR.map((s) => (
+              <button
+                key={s.code}
+                onClick={() => setCode(s.code)}
+                className={`px-3 py-[7px] rounded-[8px] text-[12px] font-medium transition-all duration-150 ${
+                  code === s.code
+                    ? "bg-[#00D4FF]/15 text-[#00D4FF] border border-[#00D4FF]/40"
+                    : "bg-[#1C1C1E] text-white/40 border border-transparent"
+                }`}
+              >
+                {s.code} {s.name}
+              </button>
+            ))}
+          </div>
+
+          {/* Horizon */}
+          <div className="mb-7">
+            <label className="text-white/40 text-[12px] mb-3 block uppercase tracking-wider">持有天數</label>
             <div className="flex gap-2">
               {HORIZONS.map((h) => (
                 <button
                   key={h}
                   onClick={() => setDays(h)}
-                  className={`flex-1 py-3 rounded-xl text-sm font-semibold border transition-all ${
+                  className={`flex-1 py-[12px] rounded-[12px] text-[14px] font-semibold transition-all duration-150 ${
                     days === h
-                      ? "border-[#00D4FF] text-[#00D4FF] bg-[#00D4FF]/10"
-                      : "border-[#2A2A2A] text-[#666]"
+                      ? "bg-[#00D4FF]/15 text-[#00D4FF] border border-[#00D4FF]/40"
+                      : "bg-[#1C1C1E] text-white/40 border border-transparent"
                   }`}
                 >
                   {h}日
@@ -127,75 +132,28 @@ export default function HomePage({ onNavigate }: Props) {
             </div>
           </div>
 
+          {/* Primary action */}
           <button
             onClick={handleAnalyze}
             disabled={!code.trim()}
-            className="w-full py-4 rounded-2xl bg-[#00D4FF] text-black font-bold text-base disabled:opacity-30 active:scale-95 transition-all"
+            className="w-full py-[16px] rounded-[14px] bg-[#00D4FF] text-black font-bold text-[16px] disabled:opacity-25 active:scale-[0.98] transition-all duration-100 mb-3"
           >
             分析歷史分布
           </button>
-        </>
-      )}
 
-      {/* Part 2 */}
-      {tab === "part2" && (
-        <>
-          <div className="grid grid-cols-2 gap-3 mb-3">
-            <div>
-              <label className="text-xs text-[#555] mb-2 block">進場日期</label>
-              <input
-                type="date"
-                value={entryDate}
-                onChange={(e) => setEntryDate(e.target.value)}
-                className="w-full bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl px-3 py-3 text-white text-sm focus:border-[#00D4FF] outline-none"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-[#555] mb-2 block">進場價格</label>
-              <input
-                type="number"
-                value={entryPrice}
-                onChange={(e) => setEntryPrice(e.target.value)}
-                placeholder="0.00"
-                inputMode="decimal"
-                className="w-full bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl px-3 py-3 text-white text-sm font-mono focus:border-[#00D4FF] outline-none"
-              />
-            </div>
-          </div>
-
-          <div className="mb-5">
-            <label className="text-xs text-[#555] mb-2 block">目前價格</label>
-            <input
-              type="number"
-              value={currentPrice}
-              onChange={(e) => setCurrentPrice(e.target.value)}
-              placeholder="0.00"
-              inputMode="decimal"
-              className="w-full bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl px-4 py-4 text-white text-xl font-mono focus:border-[#00D4FF] outline-none"
-            />
-            {pnl !== null && (
-              <p className={`text-xs mt-2 font-mono ${pnl >= 0 ? "text-[#00C851]" : "text-[#FF4444]"}`}>
-                {pnl > 0 ? "+" : ""}{pnl.toFixed(2)}% 未實現
-              </p>
-            )}
-          </div>
-
+          {/* Secondary: Edge Scanner */}
           <button
-            onClick={handlePosition}
-            disabled={!code.trim() || !entryDate || !entryPrice || !currentPrice}
-            className="w-full py-4 rounded-2xl bg-[#00D4FF] text-black font-bold text-base disabled:opacity-30 active:scale-95 transition-all mb-3"
+            onClick={handleScan}
+            disabled={!code.trim()}
+            className="w-full py-[14px] rounded-[14px] bg-[#1C1C1E] text-white/70 font-semibold text-[15px] disabled:opacity-25 active:scale-[0.98] transition-all duration-100 border border-white/[0.08]"
           >
-            評估持倉路徑
+            掃描全部狀態 Edge Scanner
           </button>
-
-          <div className="px-4 py-3 rounded-xl bg-[#1A1A1A] border border-[#2A2A2A]">
-            <p className="text-[#555] text-xs text-center">持倉評估付費功能 · 目前免費體驗</p>
-          </div>
         </>
       )}
 
       <div className="mt-auto pt-8 text-center">
-        <p className="text-[#333] text-xs">歷史統計分析 · 非投資建議 · 不預測未來</p>
+        <p className="text-white/15 text-[11px]">歷史統計分析 · 非投資建議 · 不預測未來</p>
       </div>
     </div>
   );

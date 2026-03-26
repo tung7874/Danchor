@@ -12,6 +12,7 @@ from src.engine.matcher import Matcher
 from src.engine.distribution import DistributionCalculator
 from src.engine.stability import StabilityAnalyzer
 from src.part2.position_analyzer import PositionAnalyzer
+from src.engine.scanner import EdgeScanner
 
 app = FastAPI(title="Decision Anchor API", version="1.0.0")
 
@@ -30,11 +31,17 @@ matcher = Matcher()
 dist_calc = DistributionCalculator()
 stability = StabilityAnalyzer()
 position_analyzer = PositionAnalyzer()
+edge_scanner = EdgeScanner()
 
 
 class AnalyzeRequest(BaseModel):
     asset_code: str
     analysis_date: Optional[str] = None  # YYYY-MM-DD, defaults to today
+    holding_horizon_days: int = 10
+
+
+class ScanRequest(BaseModel):
+    asset_code: str
     holding_horizon_days: int = 10
 
 
@@ -99,6 +106,27 @@ def analyze(req: AnalyzeRequest):
             },
             "stability": stability_result,
             "confidence": _confidence_label(distribution["N"]),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/v1/scan")
+def scan_states(req: ScanRequest):
+    try:
+        ticker = req.asset_code.strip() + ".TW"
+        df = fetcher.get_data(ticker)
+        if df is None or df.empty:
+            raise HTTPException(status_code=404, detail=f"No data found for {req.asset_code}")
+        df = preprocessor.calculate_indicators(df)
+        states = edge_scanner.scan(df, req.holding_horizon_days)
+        return {
+            "asset_code": req.asset_code,
+            "holding_horizon_days": req.holding_horizon_days,
+            "states": states,
         }
     except HTTPException:
         raise

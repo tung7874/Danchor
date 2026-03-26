@@ -1,12 +1,12 @@
 import { useState } from "react";
 import HomePage from "./pages/HomePage";
 import AnalyzePage from "./pages/AnalyzePage";
-import PositionPage from "./pages/PositionPage";
+import ScanPage from "./pages/ScanPage";
 
 export type Route =
   | { name: "home" }
   | { name: "analyze"; code: string; days: number }
-  | { name: "position"; code: string; entryDate: string; entryPrice: number; currentPrice: number };
+  | { name: "scan"; code: string; days: number };
 
 export default function App() {
   const [route, setRoute] = useState<Route>({ name: "home" });
@@ -21,13 +21,11 @@ export default function App() {
     );
   }
 
-  if (route.name === "position") {
+  if (route.name === "scan") {
     return (
-      <PositionPage
+      <ScanPage
         code={route.code}
-        entryDate={route.entryDate}
-        entryPrice={route.entryPrice}
-        currentPrice={route.currentPrice}
+        days={route.days}
         onBack={() => setRoute({ name: "home" })}
       />
     );

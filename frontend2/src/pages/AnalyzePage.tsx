@@ -64,17 +64,20 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
 
   return (
     <div
-      className="flex flex-col min-h-dvh bg-[#0D0D0D]"
-      style={{ paddingTop: "env(safe-area-inset-top)" }}
+      className="flex flex-col min-h-dvh bg-black"
+      style={{
+        paddingTop: "max(0px, env(safe-area-inset-top))",
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif",
+      }}
     >
       {/* Navbar */}
-      <div className="flex items-center px-4 py-3 border-b border-[#1A1A1A]">
+      <div className="flex items-center px-4 py-3 border-b border-white/[0.06]">
         <button
           onClick={onBack}
-          className="w-9 h-9 flex items-center justify-center rounded-full bg-[#1A1A1A] mr-3"
+          className="flex items-center gap-1 text-[#00D4FF] text-[16px] mr-3"
         >
-          <svg width="18" height="18" fill="none" stroke="white" strokeWidth="2.5">
-            <path d="M11 4l-7 5 7 5" />
+          <svg width="10" height="17" fill="none" viewBox="0 0 10 17">
+            <path d="M8.5 1.5 2 8.5l6.5 7" stroke="#00D4FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
         <div className="flex-1">
@@ -114,7 +117,7 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
         {data && !loading && (
           <>
             {/* State card */}
-            <div className="rounded-2xl bg-[#1A1A1A] p-5 animate-fade-up">
+            <div className="rounded-2xl bg-[#1C1C1E] p-5 animate-fade-up">
               <div className="flex justify-between items-center mb-3">
                 <h2 className="text-white font-semibold">市場狀態</h2>
                 <span className="text-[#555] text-xs">{data.state.actual_date}</span>
@@ -125,7 +128,7 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
                   { l: "動能", v: { Strong: "強勁", Neutral: "中性", Weak: "疲弱" }[data.state.components.momentum] ?? data.state.components.momentum },
                   { l: "趨勢", v: { Bull: "多頭", Bear: "空頭" }[data.state.components.trend] ?? data.state.components.trend },
                 ].map((item) => (
-                  <div key={item.l} className="flex-1 rounded-xl bg-[#111] px-2 py-2 text-center">
+                  <div key={item.l} className="flex-1 rounded-xl bg-[#2C2C2E] px-2 py-2 text-center">
                     <p className="text-[#555] text-xs mb-0.5">{item.l}</p>
                     <p className="text-white text-sm font-semibold">{item.v}</p>
                   </div>
@@ -150,7 +153,7 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
             </div>
 
             {/* Distribution card */}
-            <div className="rounded-2xl bg-[#1A1A1A] p-5 animate-fade-up">
+            <div className="rounded-2xl bg-[#1C1C1E] p-5 animate-fade-up">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-white font-semibold">報酬分布</h2>
                 <span className="text-[#555] text-xs font-mono">{data.distribution.data_range}</span>
@@ -164,7 +167,7 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
                 <StatBox label="P75 上行" value={p75} />
               </div>
 
-              <div className="mt-3 pt-3 border-t border-[#222] flex justify-between">
+              <div className="mt-3 pt-3 border-t border-white/[0.06] flex justify-between">
                 <span className="text-[#555] text-xs">樣本數</span>
                 <span className={`text-sm font-mono font-bold ${n >= 100 ? "text-[#00C851]" : n >= 30 ? "text-[#FFB800]" : "text-[#FF4444]"}`}>
                   {n} 次
@@ -173,7 +176,7 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
             </div>
 
             {/* Stability */}
-            <div className="rounded-2xl bg-[#1A1A1A] p-5 animate-fade-up">
+            <div className="rounded-2xl bg-[#1C1C1E] p-5 animate-fade-up">
               <div className="flex justify-between items-center mb-3">
                 <h2 className="text-white font-semibold">穩定性評估</h2>
                 <span
@@ -192,7 +195,7 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
 
             {/* Periods */}
             {data.stability.periods?.length > 0 && (
-              <div className="rounded-2xl bg-[#1A1A1A] p-5 animate-fade-up">
+              <div className="rounded-2xl bg-[#1C1C1E] p-5 animate-fade-up">
                 <h2 className="text-white font-semibold mb-4">分期表現</h2>
                 <div className="space-y-3">
                   {data.stability.periods.map((p) => {
@@ -200,7 +203,7 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
                     return (
                       <div key={p.label} className="flex items-center gap-3">
                         <span className="text-[#555] text-xs w-16 shrink-0">{p.label}</span>
-                        <div className="flex-1 h-6 rounded-lg bg-[#111] relative overflow-hidden">
+                        <div className="flex-1 h-6 rounded-lg bg-[#2C2C2E] relative overflow-hidden">
                           <div
                             className={`absolute top-0 h-full rounded-lg ${p.mean >= 0 ? "bg-[#00C851]/30 left-1/2" : "bg-[#FF4444]/30 right-1/2"}`}
                             style={{ width: `${(Math.abs(p.mean) / max) * 50}%` }}
@@ -252,7 +255,7 @@ function DistributionBar({ p25, p50, p75 }: { p25: number; p50: number; p75: num
 function StatBox({ label, value, highlight }: { label: string; value: number; highlight?: boolean }) {
   const color = value > 0 ? "#00C851" : value < 0 ? "#FF4444" : "#888";
   return (
-    <div className={`rounded-xl p-3 text-center ${highlight ? "bg-white/5 border border-white/10" : "bg-[#111]"}`}>
+    <div className={`rounded-xl p-3 text-center ${highlight ? "bg-white/5 border border-white/10" : "bg-[#2C2C2E]"}`}>
       <p className="text-[#555] text-xs mb-1">{label}</p>
       <p className="font-mono font-bold text-base" style={{ color }}>
         {value > 0 ? "+" : ""}{value}%

@@ -124,7 +124,7 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
           <>
             {/* Decision block */}
             <div className="rounded-[14px] bg-[#1C1C1E] px-5 py-4 animate-fade-up">
-              <p className="text-white/40 text-[11px] uppercase tracking-wider mb-3">決策建議</p>
+              <p className="text-white/40 text-[11px] uppercase tracking-wider mb-3">統計分析</p>
               <div className="flex gap-2 flex-wrap">
                 {data.action?.map((a) => (
                   <span key={a} className="px-4 py-1.5 rounded-full bg-white/15 text-white text-[13px] font-medium">

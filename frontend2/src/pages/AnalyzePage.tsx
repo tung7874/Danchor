@@ -122,22 +122,6 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
 
         {data && !loading && (
           <>
-            {/* Decision Summary */}
-            <div className="rounded-[14px] bg-[#1C1C1E] p-5 animate-fade-up">
-              <p className="text-white/40 text-[11px] uppercase tracking-wider mb-2">決策摘要</p>
-              <p className="text-white text-[20px] font-bold mb-1">{data.decision}</p>
-              <p className="text-white/50 text-[14px]">{data.insight}</p>
-              {data.action.length > 0 && (
-                <div className="flex gap-2 mt-3 flex-wrap">
-                  {data.action.map((a) => (
-                    <span key={a} className="px-3 py-1 rounded-full bg-white/10 text-white/70 text-[12px] font-medium">
-                      {a}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-
             {/* State card */}
             <div className="rounded-2xl bg-[#1C1C1E] p-5 animate-fade-up">
               <div className="flex justify-between items-center mb-3">

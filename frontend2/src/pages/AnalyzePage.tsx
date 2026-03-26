@@ -144,14 +144,13 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
               </div>
               <div className="flex gap-2 mb-3">
                 {[
-                  { l: "位置", v: { High: "近高點", Mid: "中性", Low: "近低點" }[data.state.components.relative_position] ?? data.state.components.relative_position, sub: { High: "區間偏高", Mid: "走勢平穩", Low: "區間偏低" }[data.state.components.relative_position] },
-                  { l: "動能", v: { Strong: "強動能", Neutral: "中性", Weak: "弱動能" }[data.state.components.momentum] ?? data.state.components.momentum, sub: { Strong: "上漲趨勢", Neutral: "走勢平穩", Weak: "下跌轉弱" }[data.state.components.momentum] },
-                  { l: "趨勢", v: { Bull: "多頭", Bear: "空頭" }[data.state.components.trend] ?? data.state.components.trend, sub: { Bull: "上升趨勢", Bear: "下降趨勢" }[data.state.components.trend] },
+                  { l: "位置", v: { High: "近高點", Mid: "中性", Low: "近低點" }[data.state.components.relative_position] ?? data.state.components.relative_position },
+                  { l: "動能", v: { Strong: "強動能", Neutral: "中性", Weak: "弱動能" }[data.state.components.momentum] ?? data.state.components.momentum },
+                  { l: "趨勢", v: { Bull: "多頭", Bear: "空頭" }[data.state.components.trend] ?? data.state.components.trend },
                 ].map((item) => (
                   <div key={item.l} className="flex-1 rounded-xl bg-[#2C2C2E] px-2 py-2.5 text-center">
                     <p className="text-[#555] text-[10px] mb-0.5">{item.l}</p>
                     <p className="text-white text-[13px] font-semibold">{item.v}</p>
-                    {item.sub && <p className="text-white/30 text-[10px] mt-0.5">{item.sub}</p>}
                   </div>
                 ))}
               </div>

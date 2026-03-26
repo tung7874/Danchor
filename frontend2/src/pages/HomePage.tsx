@@ -123,7 +123,7 @@ export default function HomePage({ onNavigate }: Props) {
                   onClick={() => setDays(h)}
                   className={`flex-1 py-[12px] rounded-[12px] text-[14px] font-semibold transition-all duration-150 ${
                     days === h
-                      ? "bg-[#00D4FF]/15 text-[#00D4FF] border border-[#00D4FF]/40"
+                      ? "bg-white/15 text-white border border-white/30"
                       : "bg-[#1C1C1E] text-white/40 border border-transparent"
                   }`}
                 >

@@ -73,8 +73,9 @@ class DataFetcher:
         with sqlite3.connect(DB_PATH) as conn:
             df.rename(columns={"Open": "open", "High": "high", "Low": "low",
                                 "Close": "close", "Volume": "volume"}, inplace=True)
+            conn.execute("DELETE FROM daily_prices WHERE ticker = ?", (ticker,))
             df[["ticker", "date", "open", "high", "low", "close", "volume"]].to_sql(
-                "daily_prices", conn, if_exists="replace", index=False,
+                "daily_prices", conn, if_exists="append", index=False,
                 method="multi"
             )
             conn.execute(

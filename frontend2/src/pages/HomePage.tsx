@@ -96,7 +96,8 @@ export default function HomePage({ onNavigate }: Props) {
           </div>
 
           {/* Popular chips */}
-          <div className="flex gap-2 flex-wrap mb-6">
+          <div className="flex gap-2 flex-wrap items-center mb-6">
+            <span className="text-white/50 text-[12px] font-medium mr-1">熱門:</span>
             {POPULAR.map((s) => (
               <button
                 key={s.code}

@@ -1,6 +1,8 @@
 def decision_summary(p25: float, p50: float, stability_label: str) -> str:
     if p25 > 0:
         level = "強正期望"
+    elif p50 > 0.8:
+        level = "正期望"
     elif p50 > 0:
         level = "弱正期望"
     else:
@@ -8,13 +10,14 @@ def decision_summary(p25: float, p50: float, stability_label: str) -> str:
     stab = {"Stable": "穩定", "Regime-Dependent": "環境相依", "Unstable": "不穩定"}.get(
         stability_label, stability_label
     )
-    return f"{level}（{stab}）"
+    p50_str = f"+{p50}%" if p50 > 0 else f"{p50}%"
+    return f"{level} · 中位 {p50_str}（{stab}）"
 
 
-def quick_insight(momentum: str, trend: str) -> str:
+def quick_insight(momentum: str, trend: str, win_rate: float) -> str:
     mom = {"Strong": "動能強勁", "Neutral": "動能平穩", "Weak": "動能偏弱"}.get(momentum, momentum)
     trnd = "多頭結構" if trend == "Bull" else "空頭環境"
-    return f"{mom}，目前處於{trnd}"
+    return f"{mom}，{trnd} · 歷史勝率 {win_rate}%"
 
 
 def distribution_text(p25: float, p50: float, p75: float) -> list:

@@ -137,7 +137,7 @@ export default function HomePage({ onNavigate }: Props) {
           <button
             onClick={handleAnalyze}
             disabled={!code.trim()}
-            className="w-full py-[16px] rounded-[14px] bg-[#00D4FF] text-black font-bold text-[16px] disabled:opacity-25 active:scale-[0.98] transition-all duration-100 mb-3"
+            className="w-full py-[16px] rounded-[14px] bg-white text-black font-bold text-[16px] disabled:opacity-25 active:scale-[0.98] transition-all duration-100 mb-3"
           >
             分析歷史分布
           </button>

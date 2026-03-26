@@ -122,19 +122,22 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
 
         {data && !loading && (
           <>
-            {/* Action block */}
-            {data.action?.length > 0 && (
-              <div className="rounded-[14px] bg-[#1C1C1E] px-5 py-4 animate-fade-up">
-                <p className="text-white/40 text-[11px] uppercase tracking-wider mb-3">操作建議</p>
-                <div className="flex gap-2 flex-wrap">
-                  {data.action.map((a) => (
-                    <span key={a} className="px-4 py-1.5 rounded-full bg-white/10 text-white text-[13px] font-medium">
-                      {a}
-                    </span>
-                  ))}
-                </div>
+            {/* Decision block */}
+            <div className="rounded-[14px] bg-[#1C1C1E] px-5 py-4 animate-fade-up">
+              <p className="text-white/40 text-[11px] uppercase tracking-wider mb-3">決策建議</p>
+              <div className="flex gap-2 flex-wrap">
+                {data.action?.map((a) => (
+                  <span key={a} className="px-4 py-1.5 rounded-full bg-white/15 text-white text-[13px] font-medium">
+                    {a}
+                  </span>
+                ))}
+                {data.distribution_text?.map((t) => (
+                  <span key={t} className="px-4 py-1.5 rounded-full bg-white/[0.06] text-white/50 text-[13px]">
+                    {t}
+                  </span>
+                ))}
               </div>
-            )}
+            </div>
 
             {/* State card */}
             <div className="rounded-2xl bg-[#1C1C1E] p-5 animate-fade-up">
@@ -193,15 +196,6 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
                   {n} 次
                 </span>
               </div>
-              {data.distribution_text?.length > 0 && (
-                <div className="mt-3 flex gap-2 flex-wrap">
-                  {data.distribution_text.map((t) => (
-                    <span key={t} className="text-[11px] text-white/50 bg-white/[0.06] px-2.5 py-1 rounded-full">
-                      {t}
-                    </span>
-                  ))}
-                </div>
-              )}
             </div>
 
             {/* Stability */}

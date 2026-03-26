@@ -91,7 +91,7 @@ export default function HomePage({ onNavigate }: Props) {
               placeholder="例：2330"
               inputMode="numeric"
               maxLength={6}
-              className="w-full bg-[#1C1C1E] rounded-[12px] px-4 py-[14px] text-white text-[22px] font-mono tracking-widest focus:ring-1 focus:ring-[#00D4FF] outline-none border border-transparent focus:border-[#00D4FF]/30 transition-all"
+              className="w-full bg-[#1C1C1E] rounded-[12px] px-4 py-[14px] text-white text-[22px] font-mono tracking-widest outline-none border border-white/[0.08] focus:border-white/30 transition-all"
             />
           </div>
 
@@ -104,8 +104,8 @@ export default function HomePage({ onNavigate }: Props) {
                 onClick={() => setCode(s.code)}
                 className={`px-3 py-[7px] rounded-[8px] text-[12px] font-medium transition-all duration-150 ${
                   code === s.code
-                    ? "bg-[#00D4FF]/15 text-[#00D4FF] border border-[#00D4FF]/40"
-                    : "bg-[#1C1C1E] text-white/40 border border-transparent"
+                    ? "bg-white/15 text-white border border-white/30"
+                    : "bg-[#2C2C2E] text-white/45 border border-transparent"
                 }`}
               >
                 {s.code} {s.name}

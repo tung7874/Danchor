@@ -80,10 +80,10 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
       <div className="flex items-center px-4 py-3 border-b border-white/[0.06]">
         <button
           onClick={onBack}
-          className="flex items-center gap-1 text-[#00D4FF] text-[16px] mr-3"
+          className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center mr-3 active:bg-white/20 transition-colors"
         >
-          <svg width="10" height="17" fill="none" viewBox="0 0 10 17">
-            <path d="M8.5 1.5 2 8.5l6.5 7" stroke="#00D4FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <svg width="9" height="15" fill="none" viewBox="0 0 9 15">
+            <path d="M7.5 1.5 1.5 7.5l6 6" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </button>
         <div className="flex-1">

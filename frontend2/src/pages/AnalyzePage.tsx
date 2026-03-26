@@ -206,9 +206,21 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
                   {stabilityLabel[data.stability.classification] ?? data.stability.classification}
                 </span>
               </div>
-              <p className="text-white/50 text-[13px] leading-relaxed mb-2">{data.stability_text || data.stability.reason}</p>
+              <p className="text-white/50 text-[13px] leading-relaxed mb-4">{data.stability_text || data.stability.reason}</p>
               {data.stability.cv !== undefined && (
-                <p className="text-white/25 text-[11px] font-mono">CV = {data.stability.cv}</p>
+                <div>
+                  <div className="flex justify-between text-[11px] text-white/30 mb-1.5">
+                    <span>波動</span>
+                    <span>穩定</span>
+                  </div>
+                  <div className="relative h-2 rounded-full bg-white/10">
+                    <div
+                      className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-[#FF4444] via-[#FFB800] to-[#00C851]"
+                      style={{ width: `${Math.max(4, Math.min(100, (1 - data.stability.cv / 2) * 100))}%` }}
+                    />
+                  </div>
+                  <p className="text-white/25 text-[11px] font-mono mt-1.5 text-right">CV = {data.stability.cv}</p>
+                </div>
               )}
             </div>
 

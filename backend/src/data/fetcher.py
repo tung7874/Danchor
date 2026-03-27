@@ -57,7 +57,7 @@ class DataFetcher:
         for attempt in range(3):
             try:
                 t = yf.Ticker(ticker)
-                df = t.history(start="2015-01-01", auto_adjust=True)
+                df = t.history(start="2010-01-01", auto_adjust=True)
                 if not df.empty:
                     break
             except Exception as e:

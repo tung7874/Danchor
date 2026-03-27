@@ -47,6 +47,22 @@ class DistributionCalculator:
         returns = [r["return_pct"] for r in records]
         arr = np.array(returns)
 
+        # Bootstrap P50 confidence interval (100 iterations)
+        boots = [float(np.median(np.random.choice(arr, len(arr), replace=True))) for _ in range(100)]
+        p50_ci_low = round(float(np.percentile(boots, 5)), 2)
+        p50_ci_high = round(float(np.percentile(boots, 95)), 2)
+
+        # Profit factor
+        wins = arr[arr > 0]
+        losses = arr[arr < 0]
+        if len(wins) > 0 and len(losses) > 0:
+            avg_win = float(np.mean(wins))
+            avg_loss = abs(float(np.mean(losses)))
+            w = len(wins) / len(arr)
+            profit_factor = round(w * avg_win / ((1 - w) * avg_loss), 2)
+        else:
+            profit_factor = None
+
         return {
             "P10": round(float(np.percentile(arr, 10)), 2),
             "P25": round(float(np.percentile(arr, 25)), 2),
@@ -56,6 +72,9 @@ class DistributionCalculator:
             "mean": round(float(np.mean(arr)), 2),
             "N": len(records),
             "win_rate": round(float(np.mean(arr > 0) * 100), 1),
+            "p50_ci_low": p50_ci_low,
+            "p50_ci_high": p50_ci_high,
+            "profit_factor": profit_factor,
             "data_range": f"{min(r['year'] for r in records)}–{max(r['year'] for r in records)}",
             "events": records,
         }

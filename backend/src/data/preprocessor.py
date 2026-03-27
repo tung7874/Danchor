@@ -36,7 +36,7 @@ class Preprocessor:
         )
         df["mom_t"] = pd.cut(
             df["Mom_5"],
-            bins=[-999, -5, 5, 999],
+            bins=[-999, -3, 3, 999],
             labels=["Weak", "Neutral", "Strong"]
         )
         df["trend_t"] = np.where(df["Close"] > df["SMA_50"], "Bull", "Bear")

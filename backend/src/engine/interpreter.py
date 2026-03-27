@@ -1,17 +1,14 @@
 def decision_summary(p25: float, p50: float, stability_label: str) -> str:
     if p25 > 0:
-        level = "強正期望"
+        level = "偏強"
     elif p50 > 0.8:
-        level = "正期望"
+        level = "中性偏多"
     elif p50 > 0:
-        level = "弱正期望"
+        level = "中性"
     else:
-        level = "負期望"
-    stab = {"Stable": "穩定", "Regime-Dependent": "環境相依", "Unstable": "不穩定"}.get(
-        stability_label, stability_label
-    )
+        level = "偏弱"
     p50_str = f"+{p50}%" if p50 > 0 else f"{p50}%"
-    return f"{level} · 中位 {p50_str}（{stab}）"
+    return f"歷史分布：{level} · 中位 {p50_str}"
 
 
 def quick_insight(momentum: str, trend: str, win_rate: float) -> str:
@@ -32,7 +29,7 @@ def distribution_text(p25: float, p50: float, p75: float) -> list:
 def stability_text(label: str) -> str:
     return {
         "Stable": "報酬在不同時期表現一致，穩定性高",
-        "Regime-Dependent": "報酬高度依賴市場環境，需搭配趨勢判斷",
+        "Regime-Dependent": "在上升環境中表現較佳，於轉弱環境中效果可能降低",
         "Unstable": "報酬分布不穩定，歷史參考價值低",
     }.get(label, "")
 
@@ -71,10 +68,14 @@ def generate_analysis_text(p25: float, p50: float, p75: float, cv: float) -> str
     else:
         stability = "且不同時期結果差異較大"
 
-    # ③ 風險（2類）
-    risk = "下跌幅度大致落在可接受範圍內" if p25 > -2 else "下跌風險較高"
+    # ③+④ 風險與上行合併（4類，避免矛盾）
+    if p25 < -2 and p75 > abs(p25):
+        risk_upside = "報酬分布波動較大，上下幅度均寬"
+    elif p25 < -2:
+        risk_upside = "下行風險偏高，上行空間亦相對有限"
+    elif p75 > abs(p25):
+        risk_upside = "下行風險相對可控，上行空間較寬"
+    else:
+        risk_upside = "下行風險可控，但上行空間有限"
 
-    # ④ 上行（2類）
-    upside = "且存在出現較大漲幅的可能性" if p75 > abs(p25) else "上行空間亦相對有限"
-
-    return f"{exp}，{stability}，{risk}，{upside}。"
+    return f"{exp}，{stability}，{risk_upside}。"

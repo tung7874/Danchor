@@ -22,6 +22,11 @@ class StabilityAnalyzer:
         means = yearly["mean"].values
         classification, reason, cv = self._classify(means, yearly["count"].values)
 
+        # Consistency: % of years with positive mean return (easier to understand than CV)
+        positive_years = int(np.sum(means > 0))
+        total_years = len(means)
+        consistency = round(float(positive_years / total_years * 100), 1) if total_years > 0 else 0.0
+
         # Period breakdown (group into 2-year buckets for visual clarity)
         periods = self._build_periods(df)
 
@@ -29,6 +34,9 @@ class StabilityAnalyzer:
             "classification": classification,
             "reason": reason,
             "cv": cv,
+            "consistency": consistency,
+            "positive_years": positive_years,
+            "total_years": total_years,
             "yearly": yearly.to_dict("records"),
             "periods": periods,
         }

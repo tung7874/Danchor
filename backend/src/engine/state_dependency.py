@@ -56,6 +56,7 @@ class StateDependencyAnalyzer:
         return {
             "label": label,
             "diff": diff,
+            "direction": "多" if diff > 0 else "空",
             "strength": round(strength, 2),
             "up_return": up_ret,
             "down_return": down_ret,

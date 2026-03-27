@@ -4,6 +4,8 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import date, datetime
 import traceback
+import threading
+import pandas as pd
 
 from src.data.fetcher import DataFetcher
 from src.data.preprocessor import Preprocessor
@@ -20,6 +22,19 @@ from src.engine.interpreter import (
 from src.engine.state_dependency import StateDependencyAnalyzer
 
 app = FastAPI(title="Decision Anchor API", version="1.0.0")
+
+
+@app.on_event("startup")
+async def startup_warmup():
+    def warm():
+        for ticker in _POPULAR_TICKERS:
+            try:
+                _get_df(ticker)
+                print(f"[Warmup] {ticker} ready")
+            except Exception as e:
+                print(f"[Warmup] {ticker} failed: {e}")
+    threading.Thread(target=warm, daemon=True).start()
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -38,6 +53,30 @@ stability = StabilityAnalyzer()
 position_analyzer = PositionAnalyzer()
 edge_scanner = EdgeScanner()
 dep_analyzer = StateDependencyAnalyzer()
+
+# In-memory DataFrame cache: {ticker: (date_str, preprocessed_df)}
+# Keyed by today's date — auto-invalidates next trading day
+_df_cache: dict = {}
+_cache_lock = threading.Lock()
+
+_POPULAR_TICKERS = [
+    "2330.TW", "2317.TW", "2454.TW", "2382.TW", "2308.TW",
+    "2881.TW", "2882.TW", "0050.TW", "0056.TW", "2412.TW",
+]
+
+def _get_df(ticker: str) -> pd.DataFrame:
+    today = date.today().isoformat()
+    with _cache_lock:
+        cached = _df_cache.get(ticker)
+        if cached and cached[0] == today:
+            return cached[1]
+    df = fetcher.get_data(ticker)
+    if df is None or df.empty:
+        return pd.DataFrame()
+    df = preprocessor.calculate_indicators(df)
+    with _cache_lock:
+        _df_cache[ticker] = (today, df)
+    return df
 
 
 class AnalyzeRequest(BaseModel):
@@ -76,11 +115,10 @@ def analyze(req: AnalyzeRequest):
         analysis_date = req.analysis_date or date.today().isoformat()
         ticker = req.asset_code.strip() + ".TW"
 
-        # 1. Fetch & preprocess
-        df = fetcher.get_data(ticker)
+        # 1. Fetch & preprocess (memory-cached)
+        df = _get_df(ticker)
         if df is None or df.empty:
             raise HTTPException(status_code=404, detail=f"No data found for {req.asset_code}")
-        df = preprocessor.calculate_indicators(df)
 
         # 2. Encode current state
         state_info = encoder.encode_for_date(df, analysis_date)
@@ -98,9 +136,12 @@ def analyze(req: AnalyzeRequest):
         # 5. Stability analysis
         stability_result = stability.analyze(distribution["events"])
 
+        TRADE_COST = 0.7  # 手續費(0.285%) + 交易稅(0.3%) + 滑點(0.1%) 大型股估計
+
         p25 = round(distribution["P25"], 2)
         p50 = round(distribution["P50"], 2)
         p75 = round(distribution["P75"], 2)
+        net_p50 = round(p50 - TRADE_COST, 2)
         stab_label = stability_result["classification"]
         momentum = state_info["components"]["momentum"]
         trend = state_info["components"]["trend"]
@@ -114,8 +155,12 @@ def analyze(req: AnalyzeRequest):
                 "P25": p25,
                 "P50": p50,
                 "P75": p75,
+                "net_p50": net_p50,
                 "N": distribution["N"],
                 "win_rate": distribution.get("win_rate", 0),
+                "p50_ci_low": distribution.get("p50_ci_low"),
+                "p50_ci_high": distribution.get("p50_ci_high"),
+                "profit_factor": distribution.get("profit_factor"),
                 "data_range": distribution["data_range"],
             },
             "stability": stability_result,
@@ -139,10 +184,9 @@ def analyze(req: AnalyzeRequest):
 def scan_states(req: ScanRequest):
     try:
         ticker = req.asset_code.strip() + ".TW"
-        df = fetcher.get_data(ticker)
+        df = _get_df(ticker)
         if df is None or df.empty:
             raise HTTPException(status_code=404, detail=f"No data found for {req.asset_code}")
-        df = preprocessor.calculate_indicators(df)
         states = edge_scanner.scan(df, req.holding_horizon_days)
         return {
             "asset_code": req.asset_code,
@@ -162,10 +206,9 @@ def position(req: PositionRequest):
         current_date = req.current_date or date.today().isoformat()
         ticker = req.asset_code.strip() + ".TW"
 
-        df = fetcher.get_data(ticker)
+        df = _get_df(ticker)
         if df is None or df.empty:
             raise HTTPException(status_code=404, detail=f"No data found for {req.asset_code}")
-        df = preprocessor.calculate_indicators(df)
 
         result = position_analyzer.analyze(
             df=df,

@@ -48,7 +48,8 @@ class EdgeScanner:
             n = len(records)
             win_rate = round(float(np.mean(arr > 0) * 100), 1)
 
-            score = (p50 * 0.5 + (p75 - p25) * 0.2 + (win_rate / 100) * 3) * math.log(max(n, 2))
+            penalty = max(0.0, -p25)
+            score = (p50 * 0.5 + (p75 - p25) * 0.2 + (win_rate / 100) * 3) * math.log(max(n, 2)) - penalty * 0.5
 
             parts = state.split("_")
             results.append({

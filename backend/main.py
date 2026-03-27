@@ -17,7 +17,8 @@ from src.part2.position_analyzer import PositionAnalyzer
 from src.engine.scanner import EdgeScanner
 from src.engine.interpreter import (
     decision_summary, quick_insight, distribution_text, stability_text,
-    action_suggestion, generate_analysis_text, state_dependency_text
+    action_suggestion, generate_analysis_text, state_dependency_text,
+    compute_confidence, confidence_text,
 )
 from src.engine.state_dependency import StateDependencyAnalyzer
 
@@ -142,9 +143,16 @@ def analyze(req: AnalyzeRequest):
         p50 = round(distribution["P50"], 2)
         p75 = round(distribution["P75"], 2)
         net_p50 = round(p50 - TRADE_COST, 2)
+        n = distribution["N"]
         stab_label = stability_result["classification"]
         momentum = state_info["components"]["momentum"]
         trend = state_info["components"]["trend"]
+
+        # Compute state dependency first (needed for analysis text + confidence)
+        dep_result = _build_dependency(df, state_info["state"], req.holding_horizon_days)
+        dep_label = dep_result["label"] if dep_result else "低依賴"
+
+        conf_level = compute_confidence(n, p25, p75, dep_label)
 
         return {
             "asset_code": req.asset_code,
@@ -156,7 +164,7 @@ def analyze(req: AnalyzeRequest):
                 "P50": p50,
                 "P75": p75,
                 "net_p50": net_p50,
-                "N": distribution["N"],
+                "N": n,
                 "win_rate": distribution.get("win_rate", 0),
                 "p50_ci_low": distribution.get("p50_ci_low"),
                 "p50_ci_high": distribution.get("p50_ci_high"),
@@ -164,14 +172,15 @@ def analyze(req: AnalyzeRequest):
                 "data_range": distribution["data_range"],
             },
             "stability": stability_result,
-            "confidence": _confidence_label(distribution["N"]),
+            "confidence": conf_level,
+            "confidence_text": confidence_text(conf_level),
             "decision": decision_summary(p25, p50, stab_label),
             "insight": quick_insight(momentum, trend, distribution.get("win_rate", 0)),
             "distribution_text": distribution_text(p25, p50, p75),
             "stability_text": stability_text(stab_label),
             "action": action_suggestion(p25, p50, stab_label),
-            "analysis_text": generate_analysis_text(p25, p50, p75, stability_result.get("cv", 1.0)),
-            "state_dependency": _build_dependency(df, state_info["state"], req.holding_horizon_days),
+            "analysis_text": generate_analysis_text(p25, p50, p75, stab_label, dep_label, n),
+            "state_dependency": dep_result,
         }
     except HTTPException:
         raise
@@ -251,10 +260,3 @@ def _build_dependency(df, state: str, horizon: int) -> dict | None:
     return result
 
 
-def _confidence_label(n: int) -> str:
-    if n >= 100:
-        return "high"
-    elif n >= 30:
-        return "medium"
-    else:
-        return "low"

@@ -1,3 +1,137 @@
+TEXT_MAP = {
+    "expectancy": {
+        "high": "報酬分布呈現正向偏態，歷史樣本中錄得正報酬之頻率與幅度均佔優勢，整體結構具備延續性",
+        "mid":  "整體報酬結構略偏正向，顯示歷史環境中具備一定的上行機會，但優勢幅度與一致性仍有限",
+        "low":  "報酬分布未呈現明顯正向特徵，歷史樣本中上漲優勢不足，整體報酬結構偏弱",
+    },
+    "risk": {
+        "low":  "下行波動相對收斂，報酬分布集中度較高，極端值出現之頻率與幅度均相對有限",
+        "high": "報酬分布離散程度較高，波動幅度明顯擴大，需留意尾部風險帶來的潛在影響",
+    },
+    "stability": {
+        "stable":   "不同時間區間之報酬表現具備一致性，統計特徵展現良好的穩健性",
+        "unstable": "報酬結構隨時間序列變化明顯，不同時期表現差異較大，統計一致性偏低",
+    },
+    "dependency": {
+        "high": "此統計結果與市場趨勢呈現高度連動，於市場轉弱時表現可能同步轉差，受整體環境影響較為顯著",
+        "mid":  "報酬表現與市場整體走勢存在一定關聯，不同市場環境下表現可能有所差異",
+        "low":  "報酬表現對市場整體走勢依賴程度較低，在不同環境下維持相對獨立且一致的表現",
+    },
+}
+
+
+# ─── 分類輔助 ───────────────────────────────────────────────
+
+def _classify_exp(p25: float, p50: float) -> str:
+    if p25 > 0:
+        return "high"
+    elif p50 > 0:
+        return "mid"
+    return "low"
+
+
+def _classify_risk(p25: float) -> str:
+    return "low" if p25 > -2 else "high"
+
+
+def _classify_stability(label: str) -> str:
+    return "stable" if label == "Stable" else "unstable"
+
+
+def _classify_dependency(label: str) -> str:
+    if label == "高度依賴":
+        return "high"
+    elif label == "中度依賴":
+        return "mid"
+    return "low"
+
+
+# ─── 語意衝突處理 ────────────────────────────────────────────
+
+def resolve_conflict(exp: str, risk: str, stability: str, dependency: str):
+    # 高風險壓制樂觀語氣
+    if risk == "high" and exp == "high":
+        exp = "mid"
+    # 高依賴不應同時 stable
+    if dependency == "high" and stability == "stable":
+        stability = "unstable"
+    return exp, risk, stability, dependency
+
+
+# ─── 可信度模組 ─────────────────────────────────────────────
+
+def compute_confidence(N: int, p25: float, p75: float, dependency_label: str) -> str:
+    # 樣本數（調整為台股實際區間）
+    if N > 150:
+        n_score = 2
+    elif N > 80:
+        n_score = 1
+    else:
+        n_score = 0
+
+    # 分布穩定性（IQR）
+    iqr = p75 - p25
+    if iqr < 3:
+        stability_score = 2
+    elif iqr < 6:
+        stability_score = 1
+    else:
+        stability_score = 0
+
+    # 市場依賴
+    dep_score = {"低依賴": 2, "中度依賴": 1, "高度依賴": 0}.get(dependency_label, 1)
+
+    total = n_score + stability_score + dep_score
+    if total >= 5:
+        return "high"
+    elif total >= 3:
+        return "medium"
+    return "low"
+
+
+def confidence_text(level: str) -> str:
+    return {
+        "high":   "樣本數充足且報酬分布穩定，統計結果具備較高參考價值。",
+        "medium": "樣本數與分布穩定性屬中等，結果具一定參考性，但仍存在不確定性。",
+        "low":    "樣本數或分布穩定性不足，統計結果參考性有限。",
+    }.get(level, "")
+
+
+# ─── 句型引擎 ────────────────────────────────────────────────
+
+def generate_analysis_text(
+    p25: float, p50: float, p75: float,
+    stability_label: str,
+    dependency_label: str,
+    N: int,
+) -> str:
+    exp        = _classify_exp(p25, p50)
+    risk       = _classify_risk(p25)
+    stability  = _classify_stability(stability_label)
+    dependency = _classify_dependency(dependency_label)
+
+    exp, risk, stability, dependency = resolve_conflict(exp, risk, stability, dependency)
+
+    exp_text  = TEXT_MAP["expectancy"][exp]
+    risk_text = TEXT_MAP["risk"][risk]
+    dep_text  = TEXT_MAP["dependency"][dependency]
+
+    if risk == "high":
+        # 高風險：轉折句，突出風險
+        return f"雖然{exp_text}，但{risk_text}，{dep_text}。"
+    elif dependency == "high":
+        # 高依賴：限制句
+        return f"{exp_text}，但{dep_text}，{risk_text}。"
+    elif dependency == "mid":
+        # 中依賴：輕度限制
+        return f"{exp_text}，{dep_text}，{risk_text}。"
+    else:
+        # 正常：正向陳述
+        return f"{exp_text}，{risk_text}，{dep_text}。"
+
+
+# ─── 其他輸出函數（維持原有）────────────────────────────────
+
 def decision_summary(p25: float, p50: float, stability_label: str) -> str:
     if p25 > 0:
         level = "偏強"
@@ -12,7 +146,7 @@ def decision_summary(p25: float, p50: float, stability_label: str) -> str:
 
 
 def quick_insight(momentum: str, trend: str, win_rate: float) -> str:
-    mom = {"Strong": "動能強勁", "Neutral": "動能平穩", "Weak": "動能偏弱"}.get(momentum, momentum)
+    mom  = {"Strong": "動能強勁", "Neutral": "動能平穩", "Weak": "動能偏弱"}.get(momentum, momentum)
     trnd = "多頭結構" if trend == "Bull" else "空頭環境"
     return f"{mom}，{trnd} · 歷史勝率 {win_rate}%"
 
@@ -28,9 +162,9 @@ def distribution_text(p25: float, p50: float, p75: float) -> list:
 
 def stability_text(label: str) -> str:
     return {
-        "Stable": "報酬在不同時期表現一致，穩定性高",
+        "Stable":           "報酬在不同時期表現一致，穩定性高",
         "Regime-Dependent": "在上升環境中表現較佳，於轉弱環境中效果可能降低",
-        "Unstable": "報酬分布不穩定，歷史參考價值低",
+        "Unstable":         "報酬分布不穩定，歷史參考價值低",
     }.get(label, "")
 
 
@@ -38,7 +172,7 @@ def state_dependency_text(label: str) -> str:
     return {
         "高度依賴": "此統計結果與市場走勢具有明顯關聯，在上升環境中表現較佳，於轉弱環境中效果可能降低",
         "中度依賴": "此結果在市場上升時表現較佳，市場轉弱時效果可能下降",
-        "低依賴": "此條件在不同市場環境下表現相對一致，未明顯依賴市場方向",
+        "低依賴":   "此條件在不同市場環境下表現相對一致，未明顯依賴市場方向",
     }.get(label, "資料不足，無法判斷")
 
 
@@ -49,33 +183,3 @@ def action_suggestion(p25: float, p50: float, stability_label: str) -> list:
         return ["目前條件尚未呈現明確優勢，可持續觀察後續變化"]
     else:
         return ["整體報酬表現偏弱", "不同時期表現差異較大，結果一致性較低"]
-
-
-def generate_analysis_text(p25: float, p50: float, p75: float, cv: float) -> str:
-    # ① 期望（3類）
-    if p25 > 0:
-        exp = "整體具備穩定正報酬特性"
-    elif p50 > 0:
-        exp = "整體呈現小幅正報酬傾向"
-    else:
-        exp = "整體報酬表現偏弱"
-
-    # ② 穩定性（3類，依 CV）
-    if cv < 0.5:
-        stability = "且在不同市場環境下表現相對一致"
-    elif cv < 1.5:
-        stability = "但表現會隨市場變化而有所差異"
-    else:
-        stability = "且不同時期結果差異較大"
-
-    # ③+④ 風險與上行合併（4類，避免矛盾）
-    if p25 < -2 and p75 > abs(p25):
-        risk_upside = "報酬分布波動較大，上下幅度均寬"
-    elif p25 < -2:
-        risk_upside = "下行風險偏高，上行空間亦相對有限"
-    elif p75 > abs(p25):
-        risk_upside = "下行風險相對可控，上行空間較寬"
-    else:
-        risk_upside = "下行風險可控，但上行空間有限"
-
-    return f"{exp}，{stability}，{risk_upside}。"

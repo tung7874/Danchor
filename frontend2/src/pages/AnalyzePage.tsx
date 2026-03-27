@@ -26,6 +26,7 @@ type AnalysisResult = {
     periods: { label: string; mean: number; count: number }[];
   };
   confidence: string;
+  confidence_text: string;
   decision: string;
   insight: string;
   distribution_text: string[];
@@ -138,8 +139,23 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
             <div className="rounded-2xl bg-[#1C1C1E] p-5 animate-fade-up">
               <p className="text-[#8E8E93] text-[11px] uppercase tracking-wider mb-3">統計分析</p>
               {data.analysis_text && (
-                <p className="text-white/85 text-[14px] leading-relaxed">{data.analysis_text}</p>
+                <p className="text-white/85 text-[14px] leading-relaxed mb-4">{data.analysis_text}</p>
               )}
+              <div className="pt-3 border-t border-white/[0.06]">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-[#8E8E93] text-[11px]">可信度</span>
+                  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                    data.confidence === "high"
+                      ? "bg-[#00C851]/20 text-[#00C851]"
+                      : data.confidence === "medium"
+                      ? "bg-[#FFB800]/20 text-[#FFB800]"
+                      : "bg-[#FF4444]/20 text-[#FF4444]"
+                  }`}>
+                    {{ high: "高", medium: "中", low: "低" }[data.confidence] ?? data.confidence}
+                  </span>
+                </div>
+                <p className="text-[#636366] text-[12px] leading-relaxed">{data.confidence_text}</p>
+              </div>
             </div>
 
             {/* State card */}

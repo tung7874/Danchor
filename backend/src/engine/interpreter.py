@@ -105,6 +105,7 @@ def generate_analysis_text(
     dependency_label: str,
     N: int,
     direction: str = "多",
+    consistency: float = 0.0,
 ) -> str:
     exp        = _classify_exp(p25, p50)
     risk       = _classify_risk(p25)
@@ -134,17 +135,24 @@ def generate_analysis_text(
     right_skew = p75 > abs(p25) * 1.5 and p75 > 3
     skew_text = "報酬分布呈現右側延伸特性，具備較大上行空間，但同時伴隨明顯的波動風險。" if (right_skew and risk == "high") else ""
 
-    # 句號分隔各邏輯段
+    # 固定順序：報酬 → 風險 → 市場依賴（高依賴例外：依賴是最重要風險，提前）
     if risk == "high":
         base = f"{exp_text}。{risk_text}。{dep_text}。"
     elif dependency == "high":
         base = f"{exp_text}。{dep_text}。{risk_text}。"
-    elif dependency == "mid":
-        base = f"{exp_text}。{dep_text}。{risk_text}。"
     else:
+        # low risk, mid/low dependency: 報酬 → 風險 → 市場依賴
         base = f"{exp_text}。{risk_text}。{dep_text}。"
 
-    return base + skew_text if skew_text else base
+    # 右尾句（高波動 + 明顯不對稱時）
+    if skew_text:
+        base += skew_text
+
+    # 高一致性補句（≥75% 是真正的正向訊號）
+    if consistency >= 75:
+        base += "歷史結果在不同期間表現相對一致，具備較高穩定性。"
+
+    return base
 
 
 # ─── 其他輸出函數（維持原有）────────────────────────────────

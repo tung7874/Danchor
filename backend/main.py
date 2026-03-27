@@ -206,7 +206,11 @@ def analyze(req: AnalyzeRequest):
             "distribution_text": distribution_text(p25, p50, p75),
             "stability_text": stability_text(stab_label),
             "action": action_suggestion(p25, p50, stab_label),
-            "analysis_text": generate_analysis_text(p25, p50, p75, stab_label, dep_label, n, dep_result.get("direction", "多") if dep_result else "多"),
+            "analysis_text": generate_analysis_text(
+                p25, p50, p75, stab_label, dep_label, n,
+                direction=dep_result.get("direction", "多") if dep_result else "多",
+                consistency=stability_result.get("consistency", 0.0),
+            ),
             "state_dependency": dep_result,
         }
         with _result_lock:

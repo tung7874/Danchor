@@ -104,6 +104,7 @@ def generate_analysis_text(
     stability_label: str,
     dependency_label: str,
     N: int,
+    direction: str = "多",
 ) -> str:
     exp        = _classify_exp(p25, p50)
     risk       = _classify_risk(p25)
@@ -114,17 +115,36 @@ def generate_analysis_text(
 
     exp_text  = TEXT_MAP["expectancy"][exp]
     risk_text = TEXT_MAP["risk"][risk]
-    dep_text  = TEXT_MAP["dependency"][dependency]
 
-    # 用句號分隔三個邏輯段，避免「但...但...」的連接詞衝突
-    if risk == "high":
-        return f"{exp_text}。{risk_text}。{dep_text}。"
-    elif dependency == "high":
-        return f"{exp_text}。{dep_text}。{risk_text}。"
-    elif dependency == "mid":
-        return f"{exp_text}。{dep_text}。{risk_text}。"
+    # 依賴文案加入方向資訊
+    if dependency == "low":
+        dep_text = TEXT_MAP["dependency"]["low"]
+    elif direction == "空":
+        dep_text = {
+            "high": "此統計結果在市場轉弱時表現明顯較佳，於上升環境中優勢可能減弱，受整體環境影響顯著",
+            "mid":  "此條件在市場轉弱時表現相對較佳，於上升環境中優勢較不明顯",
+        }.get(dependency, TEXT_MAP["dependency"][dependency])
     else:
-        return f"{exp_text}。{risk_text}。{dep_text}。"
+        dep_text = {
+            "high": "此統計結果與市場走勢具有明顯關聯，在上升環境中表現較佳，於轉弱環境中效果可能降低",
+            "mid":  "此結果在市場上升時表現相對較佳，於下跌環境中優勢較不明顯",
+        }.get(dependency, TEXT_MAP["dependency"][dependency])
+
+    # 右尾不對稱特徵（P75 明顯大於 |P25|）
+    right_skew = p75 > abs(p25) * 1.5 and p75 > 3
+    skew_text = "報酬分布呈現右側延伸特性，具備較大上行空間，但同時伴隨明顯的波動風險。" if (right_skew and risk == "high") else ""
+
+    # 句號分隔各邏輯段
+    if risk == "high":
+        base = f"{exp_text}。{risk_text}。{dep_text}。"
+    elif dependency == "high":
+        base = f"{exp_text}。{dep_text}。{risk_text}。"
+    elif dependency == "mid":
+        base = f"{exp_text}。{dep_text}。{risk_text}。"
+    else:
+        base = f"{exp_text}。{risk_text}。{dep_text}。"
+
+    return base + skew_text if skew_text else base
 
 
 # ─── 其他輸出函數（維持原有）────────────────────────────────

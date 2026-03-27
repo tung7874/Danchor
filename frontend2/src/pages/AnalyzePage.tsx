@@ -267,7 +267,7 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
                   }`}>
                     {data.state_dependency.label}
                     {data.state_dependency.label !== "低依賴" && (
-                      `（偏${data.state_dependency.direction}）`
+                      data.state_dependency.direction === "多" ? "（順勢型）" : "（逆勢型）"
                     )}
                   </span>
                 </div>

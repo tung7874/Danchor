@@ -58,8 +58,7 @@ class DataFetcher:
             try:
                 t = yf.Ticker(ticker)
                 df = t.history(start="2010-01-01", auto_adjust=True)
-                if not df.empty:
-                    break
+                break  # empty = ticker not found, no point retrying
             except Exception as e:
                 print(f"[Fetcher] Attempt {attempt + 1} failed: {e}")
                 if attempt < 2:

@@ -89,6 +89,9 @@ def _get_df(ticker: str) -> pd.DataFrame:
         if cached and cached[0] == today:
             return cached[1]
     df = fetcher.get_data(ticker)
+    # Fallback: OTC stocks use .TWO suffix instead of .TW
+    if (df is None or df.empty) and ticker.endswith(".TW") and not ticker.endswith(".TWO"):
+        df = fetcher.get_data(ticker[:-3] + ".TWO")
     if df is None or df.empty:
         return pd.DataFrame()
     df = preprocessor.calculate_indicators(df)

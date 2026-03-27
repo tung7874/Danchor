@@ -2,83 +2,81 @@ import numpy as np
 
 
 class DistributionCalculator:
-    """
-    向下相容舊系統接口：
-    main.py 仍可使用 DistributionCalculator().calculate()
-    """
-
     def __init__(self, min_samples=5):
         self.min_samples = min_samples
 
-    def calculate(self, returns):
-        return analyze_distribution(returns, self.min_samples)
+    def calculate(self, df, events, horizon):
+        try:
+            if events is None or len(events) == 0:
+                return self._empty_result(0)
 
+            returns = []
 
-def analyze_distribution(returns, min_samples=5):
-    """
-    returns: list[float] | np.ndarray
-    永不 crash，保證回傳結構
-    """
+            for event in events:
+                try:
+                    idx = event.get("index")
+                    if idx is None or idx + horizon >= len(df):
+                        continue
 
-    # === 1️⃣ 基本防呆 ===
-    if returns is None:
-        returns = []
+                    entry_price = df.iloc[idx]["close"]
+                    exit_price = df.iloc[idx + horizon]["close"]
 
-    try:
-        returns = np.array(returns, dtype=float)
-    except Exception:
-        returns = np.array([])
+                    if entry_price == 0:
+                        continue
 
-    # 移除 NaN / inf
-    returns = returns[np.isfinite(returns)]
+                    ret = (exit_price - entry_price) / entry_price * 100
+                    returns.append(ret)
 
-    sample_size = len(returns)
+                except Exception:
+                    continue
 
-    # === 2️⃣ 樣本不足 ===
-    if sample_size < min_samples:
+            returns = np.array(returns, dtype=float)
+            returns = returns[np.isfinite(returns)]
+
+            n = len(returns)
+
+            # === 核心：樣本不足 ===
+            if n < self.min_samples:
+                return self._empty_result(n)
+
+            # === 正常計算 ===
+            p25 = float(np.percentile(returns, 25))
+            p50 = float(np.percentile(returns, 50))
+            p75 = float(np.percentile(returns, 75))
+            mean = float(np.mean(returns))
+            win_rate = float(np.mean(returns > 0))
+
+            return {
+                "valid": True,
+                "P25": p25,
+                "P50": p50,
+                "P75": p75,
+                "mean": mean,
+                "win_rate": win_rate,
+                "N": n,
+                "events": events,
+                "data_range": None,  # 保留欄位
+                "p50_ci_low": None,
+                "p50_ci_high": None,
+                "profit_factor": None,
+            }
+
+        except Exception as e:
+            return self._empty_result(0, error=str(e))
+
+    def _empty_result(self, n, error=None):
         return {
             "valid": False,
-            "confidence": "low",
-            "reason": "insufficient_samples",
-            "sample_size": sample_size,
-            "p25": None,
-            "p50": None,
-            "p75": None,
+            "P25": None,
+            "P50": None,
+            "P75": None,
             "mean": None,
             "win_rate": None,
-        }
-
-    # === 3️⃣ 正常統計 ===
-    try:
-        p25 = float(np.percentile(returns, 25))
-        p50 = float(np.percentile(returns, 50))
-        p75 = float(np.percentile(returns, 75))
-        mean = float(np.mean(returns))
-
-        wins = np.sum(returns > 0)
-        win_rate = float(wins / sample_size)
-
-        return {
-            "valid": True,
-            "confidence": "low" if sample_size < 50 else "medium",
-            "sample_size": sample_size,
-            "p25": p25,
-            "p50": p50,
-            "p75": p75,
-            "mean": mean,
-            "win_rate": win_rate,
-        }
-
-    except Exception as e:
-        # === 4️⃣ 最終保險 ===
-        return {
-            "valid": False,
-            "confidence": "low",
-            "reason": f"calculation_error: {str(e)}",
-            "sample_size": sample_size,
-            "p25": None,
-            "p50": None,
-            "p75": None,
-            "mean": None,
-            "win_rate": None,
+            "N": n,
+            "events": [],
+            "data_range": None,
+            "p50_ci_low": None,
+            "p50_ci_high": None,
+            "profit_factor": None,
+            "reason": "insufficient_samples" if error is None else f"error: {error}"
         }

@@ -333,9 +333,7 @@ function DistributionBar({ p25, p50, p75 }: { p25: number; p50: number; p75: num
       <div className="absolute inset-x-0 h-2 rounded-full bg-[#2A2A2A]" />
       <div className="absolute h-3 rounded-full bg-white/20" style={{ left: `${toX(p25)}%`, width: `${toX(p75) - toX(p25)}%` }} />
       <div className="absolute w-px h-4 bg-[#444]" style={{ left: `${toX(0)}%` }} />
-      <div className="absolute w-2.5 h-2.5 rounded-full bg-[#00C851]" style={{ left: `${toX(p25)}%`, transform: "translateX(-50%)" }} />
-      <div className="absolute w-4 h-4 rounded-full bg-white border-2 border-[#0D0D0D] z-10" style={{ left: `${toX(p50)}%`, transform: "translateX(-50%)" }} />
-      <div className="absolute w-2.5 h-2.5 rounded-full bg-[#FF4444]" style={{ left: `${toX(p75)}%`, transform: "translateX(-50%)" }} />
+      <div className="absolute w-[2px] h-6 bg-white rounded-full z-10" style={{ left: `${toX(p50)}%`, transform: "translateX(-50%)" }} />
     </div>
   );
 }

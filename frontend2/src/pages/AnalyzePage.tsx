@@ -345,8 +345,8 @@ function StatBox({ label, sub, value, highlight, ciLow, ciHigh }: {
   const color = value > 0 ? "#FF4444" : value < 0 ? "#00C851" : "#888";
   return (
     <div className={`rounded-xl p-3 text-center ${highlight ? "bg-white/5 border border-white/10" : "bg-[#2C2C2E]"}`}>
-      <p className={highlight ? "text-white text-[13px] font-semibold" : "text-[#8E8E93] text-[11px]"}>{label}</p>
       {sub && <p className="text-[#636366] text-[10px] mb-1">{sub}</p>}
+      <p className={highlight ? "text-white text-[13px] font-semibold" : "text-[#8E8E93] text-[11px]"}>{label}</p>
       <p className="font-mono font-bold text-base" style={{ color }}>
         {value > 0 ? "+" : ""}{value}%
       </p>

@@ -17,7 +17,7 @@ class EdgeScanner:
     _TRD = {"Bull": "多頭", "Bear": "空頭"}
 
     def scan(self, df: pd.DataFrame, holding_horizon_days: int, min_n: int = 30) -> List[dict]:
-        df_index = list(df.index)
+        df_index = {date: i for i, date in enumerate(df.index)}
         results = []
 
         for state in self.ALL_STATES:
@@ -25,9 +25,8 @@ class EdgeScanner:
             records = []
 
             for event_date in similar.index:
-                try:
-                    loc = df_index.index(event_date)
-                except ValueError:
+                loc = df_index.get(event_date)
+                if loc is None:
                     continue
                 future_loc = loc + holding_horizon_days
                 if future_loc >= len(df):

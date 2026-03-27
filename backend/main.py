@@ -6,6 +6,7 @@ from datetime import date, datetime
 import traceback
 import threading
 import pandas as pd
+from concurrent.futures import ThreadPoolExecutor
 
 from src.data.fetcher import DataFetcher
 from src.data.preprocessor import Preprocessor
@@ -27,14 +28,18 @@ app = FastAPI(title="Decision Anchor API", version="1.0.0")
 
 @app.on_event("startup")
 async def startup_warmup():
-    def warm():
-        for ticker in _POPULAR_TICKERS:
-            try:
-                _get_df(ticker)
-                print(f"[Warmup] {ticker} ready")
-            except Exception as e:
-                print(f"[Warmup] {ticker} failed: {e}")
-    threading.Thread(target=warm, daemon=True).start()
+    def warm_one(ticker):
+        try:
+            _get_df(ticker)
+            print(f"[Warmup] {ticker} ready")
+        except Exception as e:
+            print(f"[Warmup] {ticker} failed: {e}")
+
+    def warm_all():
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            pool.map(warm_one, _POPULAR_TICKERS)
+
+    threading.Thread(target=warm_all, daemon=True).start()
 
 
 app.add_middleware(

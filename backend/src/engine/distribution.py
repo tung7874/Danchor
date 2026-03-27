@@ -14,12 +14,11 @@ class DistributionCalculator:
             return None
 
         records = []
-        df_index = list(df.index)
+        df_index = {date: i for i, date in enumerate(df.index)}
 
         for event_date in similar_events.index:
-            try:
-                loc = df_index.index(event_date)
-            except ValueError:
+            loc = df_index.get(event_date)
+            if loc is None:
                 continue
 
             future_loc = loc + horizon_days

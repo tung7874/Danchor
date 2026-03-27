@@ -8,13 +8,12 @@ class StateDependencyAnalyzer:
         if len(events) < 50:
             return None
 
-        df_index = list(df.index)
+        df_index = {date: i for i, date in enumerate(df.index)}
         records = []
 
         for event_date in events.index:
-            try:
-                loc = df_index.index(event_date)
-            except ValueError:
+            loc = df_index.get(event_date)
+            if loc is None:
                 continue
             future_loc = loc + horizon_days
             if future_loc >= len(df):

@@ -63,7 +63,7 @@ class DataFetcher:
             except Exception as e:
                 print(f"[Fetcher] Attempt {attempt + 1} failed: {e}")
                 if attempt < 2:
-                    time.sleep(4 * (attempt + 1))
+                    time.sleep(attempt + 1)
                 else:
                     raise
 

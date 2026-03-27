@@ -3,10 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 from datetime import date, datetime
+import time
 import traceback
 import threading
 import pandas as pd
-from concurrent.futures import ThreadPoolExecutor
 
 from src.data.fetcher import DataFetcher
 from src.data.preprocessor import Preprocessor
@@ -42,8 +42,9 @@ async def startup_warmup():
             print(f"[Warmup] {ticker} failed: {e}")
 
     def warm_all():
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            pool.map(warm_one, _POPULAR_TICKERS)
+        for ticker in _POPULAR_TICKERS:
+            warm_one(ticker)
+            time.sleep(1.5)  # avoid yfinance rate limit during warmup
 
     threading.Thread(target=warm_all, daemon=True).start()
 
@@ -174,6 +175,10 @@ def analyze(req: AnalyzeRequest):
 
         dep_result = _build_dependency(df, state_info["state"], req.holding_horizon_days)
         dep_label = dep_result["label"] if dep_result else "低依賴"
+        dep_direction = dep_result.get("direction", "多") if dep_result else "多"
+
+        stab_label = stability_result.get("classification", "Unstable")
+        consistency = stability_result.get("consistency", 0.0)
 
         conf_level = compute_confidence(n, p25 or 0, p75 or 0, dep_label)
 
@@ -197,19 +202,20 @@ def analyze(req: AnalyzeRequest):
             "stability": stability_result,
             "confidence": conf_level,
             "confidence_text": confidence_text(conf_level),
-            "decision": decision_summary(p25 or 0, p50 or 0, stability_result.get("classification")),
+            "decision": decision_summary(p25 or 0, p50 or 0, stab_label),
             "insight": quick_insight(
                 state_info["components"]["momentum"],
                 state_info["components"]["trend"],
                 win_rate or 0,
             ),
             "distribution_text": distribution_text(p25 or 0, p50 or 0, p75 or 0),
-            "stability_text": stability_text(stability_result.get("classification")),
-            "action": action_suggestion(p25 or 0, p50 or 0, stability_result.get("classification")),
+            "stability_text": stability_text(stab_label),
+            "action": action_suggestion(p25 or 0, p50 or 0, stab_label),
             "analysis_text": generate_analysis_text(
                 p25 or 0, p50 or 0, p75 or 0,
-                stability_result.get("classification"),
-                dep_label, n
+                stab_label, dep_label, n,
+                direction=dep_direction,
+                consistency=consistency,
             ),
             "state_dependency": dep_result,
         }

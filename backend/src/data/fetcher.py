@@ -5,6 +5,9 @@ import sqlite3
 import os
 from datetime import datetime
 
+# Rolling 8-year window — recalculated at import time
+_START_DATE = f"{datetime.now().year - 8}-01-01"
+
 try:
     from FinMind.data import DataLoader as _FinMindLoader
     _FINMIND_AVAILABLE = True
@@ -72,47 +75,31 @@ class DataFetcher:
     def _stock_id(self, ticker: str) -> str:
         return ticker.split(".")[0]
 
-    # 🔥 新增：資料驗證
     def _is_valid_df(self, df: pd.DataFrame) -> bool:
         if df is None or df.empty:
             return False
-
         if len(df) < 100:
             return False
-
         required_cols = ["open", "high", "low", "close", "volume"]
         for col in required_cols:
             if col not in df.columns:
                 return False
-
-        if df[required_cols].isna().any().any():
-            return False
-
         return True
 
     def _fetch_finmind(self, ticker: str) -> pd.DataFrame:
         stock_id = self._stock_id(ticker)
         try:
             print(f"[Fetcher] FinMind downloading {stock_id}...")
-            raw = self._finmind.taiwan_stock_daily(
-                stock_id=stock_id,
-                start_date="2010-01-01"
-            )
-
+            raw = self._finmind.taiwan_stock_daily(stock_id=stock_id, start_date=_START_DATE)
             if raw is None or raw.empty:
                 return pd.DataFrame()
-
             raw = raw[["date", "open", "max", "min", "close", "Trading Volume"]].copy()
             raw.columns = ["date", "open", "high", "low", "close", "volume"]
             raw["date"] = pd.to_datetime(raw["date"])
             raw = raw.set_index("date").sort_index()
-
-            # 🔥 關鍵：清掉壞資料
             raw = raw.dropna()
-
             print(f"[Fetcher] FinMind OK: {len(raw)} rows")
             return raw
-
         except Exception as e:
             print(f"[Fetcher] FinMind failed for {stock_id}: {e}")
             return pd.DataFrame()
@@ -120,12 +107,11 @@ class DataFetcher:
     def _fetch_yfinance(self, ticker: str) -> pd.DataFrame:
         print(f"[Fetcher] yfinance downloading {ticker}...")
         raw = pd.DataFrame()
-
         for attempt in range(3):
             try:
                 t = yf.Ticker(ticker)
-                raw = t.history(start="2010-01-01", auto_adjust=True, timeout=6)
-                break
+                raw = t.history(start=_START_DATE, auto_adjust=True, timeout=10)
+                break  # empty = ticker not found, no point retrying
             except Exception as e:
                 print(f"[Fetcher] yfinance attempt {attempt + 1} failed: {e}")
                 if attempt < 2:
@@ -143,26 +129,17 @@ class DataFetcher:
         raw.columns = ["open", "high", "low", "close", "volume"]
         raw.index = pd.to_datetime(raw.index)
         raw.index.name = "date"
-
-        # 🔥 保險再清一次
         raw = raw.dropna()
-
         print(f"[Fetcher] yfinance OK: {len(raw)} rows")
         return raw
 
     def _download_and_store(self, ticker: str) -> pd.DataFrame:
         df = pd.DataFrame()
-
-        # 1️⃣ FinMind
         if self._finmind is not None:
             df = self._fetch_finmind(ticker)
-
-        # 2️⃣ 驗證 → 不合法就 fallback
         if not self._is_valid_df(df):
             print(f"[Fetcher] FinMind invalid → fallback to yfinance ({ticker})")
             df = self._fetch_yfinance(ticker)
-
-        # 3️⃣ 再驗證一次
         if not self._is_valid_df(df):
             print(f"[Fetcher] No valid data for {ticker}")
             return pd.DataFrame()

@@ -223,7 +223,7 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
               <div className="mt-3 pt-3 border-t border-white/[0.06] space-y-2">
                 <div className="flex justify-between">
                   <span className="text-[#8E8E93] text-xs">樣本數</span>
-                  <span className={`text-sm font-mono font-bold ${n >= 100 ? "text-[#00C851]" : n >= 30 ? "text-[#FFB800]" : "text-[#FF4444]"}`}>
+                  <span className="text-sm font-mono font-bold text-white">
                     {n} 次
                   </span>
                 </div>

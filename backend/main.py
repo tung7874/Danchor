@@ -44,7 +44,7 @@ async def startup_warmup():
             print(f"[Warmup] {ticker} failed: {e}")
 
     def warm_all():
-        with ThreadPoolExecutor(max_workers=3) as pool:
+        with ThreadPoolExecutor(max_workers=2) as pool:
             pool.map(warm_one, _POPULAR_TICKERS)
 
     threading.Thread(target=warm_all, daemon=True).start()
@@ -222,16 +222,26 @@ def analyze(req: AnalyzeRequest):
 @app.post("/api/v1/scan")
 def scan_states(req: ScanRequest):
     try:
+        today = date.today().isoformat()
         ticker = req.asset_code.strip() + ".TW"
+        skey = (ticker, req.holding_horizon_days)
+        with _result_lock:
+            sc = _result_cache.get(skey)
+            if sc and sc[0] == today:
+                return sc[1]
+
         df = _get_df(ticker)
         if df is None or df.empty:
             raise HTTPException(status_code=404, detail=f"No data found for {req.asset_code}")
         states = edge_scanner.scan(df, req.holding_horizon_days)
-        return {
+        result = {
             "asset_code": req.asset_code,
             "holding_horizon_days": req.holding_horizon_days,
             "states": states,
         }
+        with _result_lock:
+            _result_cache[skey] = (today, result)
+        return result
     except HTTPException:
         raise
     except Exception as e:

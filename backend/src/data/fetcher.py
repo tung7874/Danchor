@@ -3,16 +3,35 @@ import yfinance as yf
 import pandas as pd
 import sqlite3
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
+
+try:
+    from FinMind.data import DataLoader as _FinMindLoader
+    _FINMIND_AVAILABLE = True
+except ImportError:
+    _FINMIND_AVAILABLE = False
 
 _data_dir = os.environ.get("DATA_DIR", os.path.join(os.path.dirname(__file__), "../../data/processed"))
 DB_PATH = os.path.join(_data_dir, "market_data.db")
+_FINMIND_TOKEN = os.environ.get("FINMIND_TOKEN", "")
 
 
 class DataFetcher:
     def __init__(self):
         os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
         self._init_db()
+        self._finmind = None
+        if _FINMIND_AVAILABLE:
+            try:
+                self._finmind = _FinMindLoader()
+                if _FINMIND_TOKEN:
+                    self._finmind.login_by_token(api_token=_FINMIND_TOKEN)
+                    print("[Fetcher] FinMind logged in with token")
+                else:
+                    print("[Fetcher] FinMind ready (no token, free tier)")
+            except Exception as e:
+                print(f"[Fetcher] FinMind init failed: {e}")
+                self._finmind = None
 
     def _init_db(self):
         with sqlite3.connect(DB_PATH) as conn:
@@ -48,46 +67,79 @@ class DataFetcher:
             if not row:
                 return False
             last = datetime.fromisoformat(row[0])
-            # Refresh if data is older than 1 day
             return (datetime.now() - last).total_seconds() < 86400
 
-    def _download_and_store(self, ticker: str) -> pd.DataFrame:
-        print(f"[Fetcher] Downloading {ticker} from yfinance...")
-        df = pd.DataFrame()
+    def _stock_id(self, ticker: str) -> str:
+        """'2330.TW' → '2330'"""
+        return ticker.split(".")[0]
+
+    def _fetch_finmind(self, ticker: str) -> pd.DataFrame:
+        """Returns df with DatetimeIndex 'date' and lowercase OHLCV columns, or empty df."""
+        stock_id = self._stock_id(ticker)
+        try:
+            print(f"[Fetcher] FinMind downloading {stock_id}...")
+            raw = self._finmind.taiwan_stock_daily(stock_id=stock_id, start_date="2010-01-01")
+            if raw is None or raw.empty:
+                return pd.DataFrame()
+            raw = raw[["date", "open", "max", "min", "close", "Trading Volume"]].copy()
+            raw.columns = ["date", "open", "high", "low", "close", "volume"]
+            raw["date"] = pd.to_datetime(raw["date"])
+            raw = raw.set_index("date").sort_index()
+            print(f"[Fetcher] FinMind OK: {len(raw)} rows")
+            return raw
+        except Exception as e:
+            print(f"[Fetcher] FinMind failed for {stock_id}: {e}")
+            return pd.DataFrame()
+
+    def _fetch_yfinance(self, ticker: str) -> pd.DataFrame:
+        """Returns df with DatetimeIndex 'date' and lowercase OHLCV columns, or empty df."""
+        print(f"[Fetcher] yfinance downloading {ticker}...")
+        raw = pd.DataFrame()
         for attempt in range(3):
             try:
                 t = yf.Ticker(ticker)
-                df = t.history(start="2010-01-01", auto_adjust=True, timeout=6)
+                raw = t.history(start="2010-01-01", auto_adjust=True, timeout=6)
                 break  # empty = ticker not found, no point retrying
             except Exception as e:
-                print(f"[Fetcher] Attempt {attempt + 1} failed: {e}")
+                print(f"[Fetcher] yfinance attempt {attempt + 1} failed: {e}")
                 if attempt < 2:
                     time.sleep(attempt + 1)
                 else:
                     raise
 
+        if raw.empty:
+            return pd.DataFrame()
+
+        if isinstance(raw.columns, pd.MultiIndex):
+            raw.columns = raw.columns.get_level_values(0)
+
+        raw = raw[["Open", "High", "Low", "Close", "Volume"]].copy()
+        raw.columns = ["open", "high", "low", "close", "volume"]
+        raw.index = pd.to_datetime(raw.index)
+        raw.index.name = "date"
+        print(f"[Fetcher] yfinance OK: {len(raw)} rows")
+        return raw
+
+    def _download_and_store(self, ticker: str) -> pd.DataFrame:
+        # Try FinMind first, fall back to yfinance
+        df = pd.DataFrame()
+        if self._finmind is not None:
+            df = self._fetch_finmind(ticker)
+        if df.empty:
+            df = self._fetch_yfinance(ticker)
         if df.empty:
             print(f"[Fetcher] No data for {ticker}")
             return pd.DataFrame()
 
-        # yfinance multi-level columns fix
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
-
-        df = df[["Open", "High", "Low", "Close", "Volume"]].copy()
-        df.index = pd.to_datetime(df.index)
-        df.index.name = "date"
+        df = df.copy()
         df.reset_index(inplace=True)
         df["date"] = df["date"].dt.strftime("%Y-%m-%d")
         df["ticker"] = ticker
 
         with sqlite3.connect(DB_PATH) as conn:
-            df.rename(columns={"Open": "open", "High": "high", "Low": "low",
-                                "Close": "close", "Volume": "volume"}, inplace=True)
             conn.execute("DELETE FROM daily_prices WHERE ticker = ?", (ticker,))
             df[["ticker", "date", "open", "high", "low", "close", "volume"]].to_sql(
-                "daily_prices", conn, if_exists="append", index=False,
-                method="multi"
+                "daily_prices", conn, if_exists="append", index=False, method="multi"
             )
             conn.execute(
                 "INSERT OR REPLACE INTO fetch_log (ticker, last_fetched) VALUES (?, ?)",

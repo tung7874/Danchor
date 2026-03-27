@@ -39,25 +39,25 @@ def stability_text(label: str) -> str:
 
 def state_dependency_text(label: str) -> str:
     return {
-        "高度依賴": "此條件在市場上升時表現明顯較佳，對市場趨勢依賴較高",
-        "中度依賴": "此條件在不同市場環境下表現略有差異，與市場走勢存在一定關聯",
+        "高度依賴": "此統計結果與市場走勢具有明顯關聯，在上升環境中表現較佳，於轉弱環境中效果可能降低",
+        "中度依賴": "此結果在市場上升時表現較佳，市場轉弱時效果可能下降",
         "低依賴": "此條件在不同市場環境下表現相對一致，未明顯依賴市場方向",
     }.get(label, "資料不足，無法判斷")
 
 
 def action_suggestion(p25: float, p50: float, stability_label: str) -> list:
     if p25 > 0 and stability_label == "Stable":
-        return ["統計上呈穩定正報酬", "各市場環境表現一致"]
+        return ["整體具備穩定正報酬特性", "在不同市場環境下表現相對一致"]
     elif p50 > 0:
-        return ["統計上偏正報酬", "受市場環境影響較明顯"]
+        return ["目前條件尚未呈現明確優勢，可持續觀察後續變化"]
     else:
-        return ["統計上報酬偏弱", "歷史參考價值有限"]
+        return ["整體報酬表現偏弱", "不同時期表現差異較大，結果一致性較低"]
 
 
 def generate_analysis_text(p25: float, p50: float, p75: float, cv: float) -> str:
     # ① 期望（3類）
     if p25 > 0:
-        exp = "整體呈現穩定正報酬特性"
+        exp = "整體具備穩定正報酬特性"
     elif p50 > 0:
         exp = "整體呈現小幅正報酬傾向"
     else:
@@ -65,16 +65,16 @@ def generate_analysis_text(p25: float, p50: float, p75: float, cv: float) -> str
 
     # ② 穩定性（3類，依 CV）
     if cv < 0.5:
-        stability = "且在不同市場階段表現一致"
+        stability = "且在不同市場環境下表現相對一致"
     elif cv < 1.5:
-        stability = "但報酬表現受市場環境影響較大"
+        stability = "但表現會隨市場變化而有所差異"
     else:
-        stability = "且歷史報酬分布差異較大"
+        stability = "且不同時期結果差異較大"
 
     # ③ 風險（2類）
-    risk = "整體下行風險相對可控" if p25 > -2 else "需留意潛在下行風險"
+    risk = "下跌幅度大致落在可接受範圍內" if p25 > -2 else "下跌風險較高"
 
     # ④ 上行（2類）
-    upside = "並具備一定上行延伸空間" if p75 > abs(p25) else "上行空間相對有限"
+    upside = "且存在出現較大漲幅的可能性" if p75 > abs(p25) else "上行空間亦相對有限"
 
     return f"{exp}，{stability}，{risk}，{upside}。"

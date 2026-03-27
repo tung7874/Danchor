@@ -61,16 +61,6 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
   const p75 = data?.distribution.P75 ?? 0;
   const n = data?.distribution.N ?? 0;
 
-  const stabilityColor: Record<string, string> = {
-    Stable: "#00C851",
-    "Regime-Dependent": "#FFB800",
-    Unstable: "#FF4444",
-  };
-  const stabilityLabel: Record<string, string> = {
-    Stable: "穩定",
-    "Regime-Dependent": "環境相依",
-    Unstable: "不穩定",
-  };
   const confLabel: Record<string, string> = {
     high: "高信度", medium: "中信度", low: "低信度",
   };
@@ -247,20 +237,13 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
                 <h2 className="text-white font-semibold mb-4">分期表現</h2>
                 <div className="space-y-3">
                   {data.stability.periods.map((p) => {
-                    const max = Math.max(...data.stability.periods.map((x) => Math.abs(x.mean)), 0.1);
                     return (
-                      <div key={p.label} className="flex items-center gap-3">
-                        <span className="text-[#555] text-xs w-16 shrink-0">{p.label}</span>
-                        <div className="flex-1 h-6 rounded-lg bg-[#2C2C2E] relative overflow-hidden">
-                          <div
-                            className={`absolute top-0 h-full rounded-lg ${p.mean >= 0 ? "bg-[#00C851]/30 left-1/2" : "bg-[#FF4444]/30 right-1/2"}`}
-                            style={{ width: `${(Math.abs(p.mean) / max) * 50}%` }}
-                          />
-                        </div>
-                        <span className="text-xs font-mono w-14 text-right" style={{ color: p.mean >= 0 ? "#00C851" : "#FF4444" }}>
+                      <div key={p.label} className="flex items-center justify-between">
+                        <span className="text-white/30 text-[13px] w-20">{p.label}</span>
+                        <span className="text-[13px] font-mono font-semibold" style={{ color: p.mean >= 0 ? "#00C851" : "#FF4444" }}>
                           {p.mean > 0 ? "+" : ""}{p.mean}%
                         </span>
-                        <span className="text-[#444] text-xs w-8 text-right">{p.count}次</span>
+                        <span className="text-white/20 text-[11px] w-12 text-right">{p.count} 次</span>
                       </div>
                     );
                   })}

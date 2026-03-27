@@ -216,7 +216,7 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
 
               <div className="grid grid-cols-3 gap-3 mt-4">
                 <StatBox label="P25" sub="較差情況" value={p25} />
-                <StatBox label="P50" sub="中位報酬" value={p50} highlight ciLow={ciLow} ciHigh={ciHigh} />
+                <StatBox label="50%" sub="中位報酬" value={p50} highlight ciLow={ciLow} ciHigh={ciHigh} />
                 <StatBox label="P75" sub="較好情況" value={p75} />
               </div>
 
@@ -345,7 +345,7 @@ function StatBox({ label, sub, value, highlight, ciLow, ciHigh }: {
   const color = value > 0 ? "#FF4444" : value < 0 ? "#00C851" : "#888";
   return (
     <div className={`rounded-xl p-3 text-center ${highlight ? "bg-white/5 border border-white/10" : "bg-[#2C2C2E]"}`}>
-      <p className="text-[#8E8E93] text-[11px]">{label}</p>
+      <p className={highlight ? "text-white text-[13px] font-semibold" : "text-[#8E8E93] text-[11px]"}>{label}</p>
       {sub && <p className="text-[#636366] text-[10px] mb-1">{sub}</p>}
       <p className="font-mono font-bold text-base" style={{ color }}>
         {value > 0 ? "+" : ""}{value}%

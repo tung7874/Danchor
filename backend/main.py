@@ -180,7 +180,10 @@ def analyze(req: AnalyzeRequest):
         stab_label = stability_result.get("classification", "Unstable")
         consistency = stability_result.get("consistency", 0.0)
 
-        conf_level = compute_confidence(n, p25 or 0, p75 or 0, dep_label)
+        if not distribution or not distribution.get("valid", True):
+            conf_level = "low"
+        else:
+            conf_level = compute_confidence(n, p25 or 0, p75 or 0, dep_label)
 
         result = {
             "asset_code": req.asset_code,

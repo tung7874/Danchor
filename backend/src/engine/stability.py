@@ -6,7 +6,11 @@ from typing import List
 class StabilityAnalyzer:
     def analyze(self, events: List[dict]) -> dict:
         if not events:
-            return {"classification": "Unstable", "yearly": [], "reason": "No events"}
+            return {
+                "classification": "Unstable", "reason": "No events",
+                "cv": 0, "consistency": 0.0, "positive_years": 0, "total_years": 0,
+                "yearly": [], "periods": [],
+            }
 
         df = pd.DataFrame(events)
 

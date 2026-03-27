@@ -31,9 +31,7 @@ async def startup_warmup():
     def warm_one(ticker):
         try:
             _get_df(ticker)
-            # Pre-compute common analysis results so first user request is instant
             code = ticker.replace(".TW", "")
-            today = date.today().isoformat()
             for horizon in [5, 10, 20]:
                 try:
                     analyze(AnalyzeRequest(asset_code=code, holding_horizon_days=horizon))
@@ -68,13 +66,10 @@ position_analyzer = PositionAnalyzer()
 edge_scanner = EdgeScanner()
 dep_analyzer = StateDependencyAnalyzer()
 
-# In-memory DataFrame cache: {ticker: (date_str, preprocessed_df)}
-_df_cache: dict = {}
+_df_cache = {}
 _cache_lock = threading.Lock()
 
-# Full analysis result cache: {(ticker, analysis_date, horizon): result}
-# Avoids recomputing the same request within the same day
-_result_cache: dict = {}
+_result_cache = {}
 _result_lock = threading.Lock()
 
 _POPULAR_TICKERS = [
@@ -82,27 +77,33 @@ _POPULAR_TICKERS = [
     "2881.TW", "2882.TW", "0050.TW", "0056.TW", "2412.TW",
 ]
 
+
 def _get_df(ticker: str) -> pd.DataFrame:
     today = date.today().isoformat()
     with _cache_lock:
         cached = _df_cache.get(ticker)
         if cached and cached[0] == today:
             return cached[1]
+
     df = fetcher.get_data(ticker)
-    # Fallback: OTC stocks use .TWO suffix instead of .TW
+
     if (df is None or df.empty) and ticker.endswith(".TW") and not ticker.endswith(".TWO"):
         df = fetcher.get_data(ticker[:-3] + ".TWO")
+
     if df is None or df.empty:
         return pd.DataFrame()
+
     df = preprocessor.calculate_indicators(df)
+
     with _cache_lock:
         _df_cache[ticker] = (today, df)
+
     return df
 
 
 class AnalyzeRequest(BaseModel):
     asset_code: str
-    analysis_date: Optional[str] = None  # YYYY-MM-DD, defaults to today
+    analysis_date: Optional[str] = None
     holding_horizon_days: int = 10
 
 
@@ -113,9 +114,9 @@ class ScanRequest(BaseModel):
 
 class PositionRequest(BaseModel):
     asset_code: str
-    entry_date: str       # YYYY-MM-DD
+    entry_date: str
     entry_price: float
-    current_date: Optional[str] = None  # defaults to today
+    current_date: Optional[str] = None
     current_price: float
     position_type: str = "LONG"
 
@@ -136,50 +137,45 @@ def analyze(req: AnalyzeRequest):
         analysis_date = req.analysis_date or date.today().isoformat()
         ticker = req.asset_code.strip() + ".TW"
 
-        # Check result cache first
         rkey = (ticker, analysis_date, req.holding_horizon_days)
         with _result_lock:
             cached = _result_cache.get(rkey)
             if cached and cached[0] == analysis_date:
                 return cached[1]
 
-        # 1. Fetch & preprocess (memory-cached)
         df = _get_df(ticker)
         if df is None or df.empty:
             raise HTTPException(status_code=404, detail=f"No data found for {req.asset_code}")
 
-        # 2. Encode current state
         state_info = encoder.encode_for_date(df, analysis_date)
         if state_info is None:
-            raise HTTPException(status_code=400, detail="Not enough historical data to encode state for this date")
+            raise HTTPException(status_code=400, detail="Not enough historical data")
 
-        # 3. Find similar historical states
         similar_events = matcher.find_similar(df, state_info["state"], analysis_date)
 
-        # 4. Calculate return distribution
+        # ===== 🔥 修補開始 =====
         distribution = dist_calc.calculate(df, similar_events, req.holding_horizon_days)
-        if distribution is None:
-            raise HTTPException(status_code=400, detail="Not enough similar historical events found")
 
-        # 5. Stability analysis
-        stability_result = stability.analyze(distribution["events"])
+        if distribution is None or not distribution.get("valid", True):
+            p25 = p50 = p75 = None
+            net_p50 = None
+            n = distribution.get("N", 0) if distribution else 0
+            win_rate = None
+        else:
+            p25 = round(distribution.get("P25", 0), 2)
+            p50 = round(distribution.get("P50", 0), 2)
+            p75 = round(distribution.get("P75", 0), 2)
+            net_p50 = round(p50 - 0.7, 2)
+            n = distribution.get("N", 0)
+            win_rate = distribution.get("win_rate", 0)
+        # ===== 🔥 修補結束 =====
 
-        TRADE_COST = 0.7  # 手續費(0.285%) + 交易稅(0.3%) + 滑點(0.1%) 大型股估計
+        stability_result = stability.analyze(distribution.get("events", []))
 
-        p25 = round(distribution["P25"], 2)
-        p50 = round(distribution["P50"], 2)
-        p75 = round(distribution["P75"], 2)
-        net_p50 = round(p50 - TRADE_COST, 2)
-        n = distribution["N"]
-        stab_label = stability_result["classification"]
-        momentum = state_info["components"]["momentum"]
-        trend = state_info["components"]["trend"]
-
-        # Compute state dependency first (needed for analysis text + confidence)
         dep_result = _build_dependency(df, state_info["state"], req.holding_horizon_days)
         dep_label = dep_result["label"] if dep_result else "低依賴"
 
-        conf_level = compute_confidence(n, p25, p75, dep_label)
+        conf_level = compute_confidence(n, p25 or 0, p75 or 0, dep_label)
 
         result = {
             "asset_code": req.asset_code,
@@ -192,115 +188,74 @@ def analyze(req: AnalyzeRequest):
                 "P75": p75,
                 "net_p50": net_p50,
                 "N": n,
-                "win_rate": distribution.get("win_rate", 0),
+                "win_rate": win_rate,
                 "p50_ci_low": distribution.get("p50_ci_low"),
                 "p50_ci_high": distribution.get("p50_ci_high"),
                 "profit_factor": distribution.get("profit_factor"),
-                "data_range": distribution["data_range"],
+                "data_range": distribution.get("data_range"),
             },
             "stability": stability_result,
             "confidence": conf_level,
             "confidence_text": confidence_text(conf_level),
-            "decision": decision_summary(p25, p50, stab_label),
-            "insight": quick_insight(momentum, trend, distribution.get("win_rate", 0)),
-            "distribution_text": distribution_text(p25, p50, p75),
-            "stability_text": stability_text(stab_label),
-            "action": action_suggestion(p25, p50, stab_label),
+            "decision": decision_summary(p25 or 0, p50 or 0, stability_result.get("classification")),
+            "insight": quick_insight(
+                state_info["components"]["momentum"],
+                state_info["components"]["trend"],
+                win_rate or 0,
+            ),
+            "distribution_text": distribution_text(p25 or 0, p50 or 0, p75 or 0),
+            "stability_text": stability_text(stability_result.get("classification")),
+            "action": action_suggestion(p25 or 0, p50 or 0, stability_result.get("classification")),
             "analysis_text": generate_analysis_text(
-                p25, p50, p75, stab_label, dep_label, n,
-                direction=dep_result.get("direction", "多") if dep_result else "多",
-                consistency=stability_result.get("consistency", 0.0),
+                p25 or 0, p50 or 0, p75 or 0,
+                stability_result.get("classification"),
+                dep_label, n
             ),
             "state_dependency": dep_result,
         }
+
         with _result_lock:
             _result_cache[rkey] = (analysis_date, result)
+
         return result
+
     except HTTPException:
         raise
     except Exception as e:
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+        return {"status": "error", "message": str(e)}
 
 
 @app.post("/api/v1/scan")
 def scan_states(req: ScanRequest):
     try:
-        today = date.today().isoformat()
-        ticker = req.asset_code.strip() + ".TW"
-        skey = (ticker, req.holding_horizon_days)
-        with _result_lock:
-            sc = _result_cache.get(skey)
-            if sc and sc[0] == today:
-                return sc[1]
-
-        df = _get_df(ticker)
-        if df is None or df.empty:
-            raise HTTPException(status_code=404, detail=f"No data found for {req.asset_code}")
+        df = _get_df(req.asset_code.strip() + ".TW")
         states = edge_scanner.scan(df, req.holding_horizon_days)
-        result = {
-            "asset_code": req.asset_code,
-            "holding_horizon_days": req.holding_horizon_days,
-            "states": states,
-        }
-        with _result_lock:
-            _result_cache[skey] = (today, result)
-        return result
-    except HTTPException:
-        raise
+        return {"states": states}
     except Exception as e:
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+        return {"status": "error", "message": str(e)}
 
 
 @app.post("/api/v1/position")
 def position(req: PositionRequest):
     try:
-        current_date = req.current_date or date.today().isoformat()
-        ticker = req.asset_code.strip() + ".TW"
-
-        df = _get_df(ticker)
-        if df is None or df.empty:
-            raise HTTPException(status_code=404, detail=f"No data found for {req.asset_code}")
-
-        result = position_analyzer.analyze(
-            df=df,
-            entry_date=req.entry_date,
-            entry_price=req.entry_price,
-            current_date=current_date,
-            current_price=req.current_price,
-            position_type=req.position_type,
+        df = _get_df(req.asset_code.strip() + ".TW")
+        return position_analyzer.analyze(
+            df,
+            req.entry_date,
+            req.entry_price,
+            req.current_date or date.today().isoformat(),
+            req.current_price,
+            req.position_type,
         )
-        return result
-    except HTTPException:
-        raise
     except Exception as e:
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=str(e))
+        return {"status": "error", "message": str(e)}
 
 
-@app.get("/api/v1/assets")
-def list_assets():
-    popular = [
-        {"code": "2330", "name": "台積電"},
-        {"code": "2317", "name": "鴻海"},
-        {"code": "2454", "name": "聯發科"},
-        {"code": "2382", "name": "廣達"},
-        {"code": "2308", "name": "台達電"},
-        {"code": "2881", "name": "富邦金"},
-        {"code": "2882", "name": "國泰金"},
-        {"code": "0050", "name": "元大台灣50"},
-        {"code": "0056", "name": "元大高股息"},
-        {"code": "2412", "name": "中華電"},
-    ]
-    return {"assets": popular}
-
-
-def _build_dependency(df, state: str, horizon: int) -> dict | None:
+def _build_dependency(df, state: str, horizon: int):
     result = dep_analyzer.analyze(df, state, horizon)
-    if result is None:
-        return None
-    result["text"] = state_dependency_text(result["label"], result.get("direction", "多"))
+    if result:
+        result["text"] = state_dependency_text(result["label"], result.get("direction", "多"))
     return result
-
-

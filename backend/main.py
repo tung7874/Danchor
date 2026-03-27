@@ -31,6 +31,14 @@ async def startup_warmup():
     def warm_one(ticker):
         try:
             _get_df(ticker)
+            # Pre-compute common analysis results so first user request is instant
+            code = ticker.replace(".TW", "")
+            today = date.today().isoformat()
+            for horizon in [5, 10, 20]:
+                try:
+                    analyze(AnalyzeRequest(asset_code=code, holding_horizon_days=horizon))
+                except Exception:
+                    pass
             print(f"[Warmup] {ticker} ready")
         except Exception as e:
             print(f"[Warmup] {ticker} failed: {e}")
@@ -61,9 +69,13 @@ edge_scanner = EdgeScanner()
 dep_analyzer = StateDependencyAnalyzer()
 
 # In-memory DataFrame cache: {ticker: (date_str, preprocessed_df)}
-# Keyed by today's date — auto-invalidates next trading day
 _df_cache: dict = {}
 _cache_lock = threading.Lock()
+
+# Full analysis result cache: {(ticker, analysis_date, horizon): result}
+# Avoids recomputing the same request within the same day
+_result_cache: dict = {}
+_result_lock = threading.Lock()
 
 _POPULAR_TICKERS = [
     "2330.TW", "2317.TW", "2454.TW", "2382.TW", "2308.TW",
@@ -121,6 +133,13 @@ def analyze(req: AnalyzeRequest):
         analysis_date = req.analysis_date or date.today().isoformat()
         ticker = req.asset_code.strip() + ".TW"
 
+        # Check result cache first
+        rkey = (ticker, analysis_date, req.holding_horizon_days)
+        with _result_lock:
+            cached = _result_cache.get(rkey)
+            if cached and cached[0] == analysis_date:
+                return cached[1]
+
         # 1. Fetch & preprocess (memory-cached)
         df = _get_df(ticker)
         if df is None or df.empty:
@@ -159,7 +178,7 @@ def analyze(req: AnalyzeRequest):
 
         conf_level = compute_confidence(n, p25, p75, dep_label)
 
-        return {
+        result = {
             "asset_code": req.asset_code,
             "analysis_date": analysis_date,
             "holding_horizon_days": req.holding_horizon_days,
@@ -187,6 +206,9 @@ def analyze(req: AnalyzeRequest):
             "analysis_text": generate_analysis_text(p25, p50, p75, stab_label, dep_label, n),
             "state_dependency": dep_result,
         }
+        with _result_lock:
+            _result_cache[rkey] = (analysis_date, result)
+        return result
     except HTTPException:
         raise
     except Exception as e:

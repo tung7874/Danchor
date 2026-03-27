@@ -1,9 +1,13 @@
 import time
+import threading
 import yfinance as yf
 import pandas as pd
 import sqlite3
 import os
 from datetime import datetime
+
+# Serialize yfinance downloads to avoid concurrent rate-limit hits
+_yf_lock = threading.Lock()
 
 # Rolling 8-year window — recalculated at import time
 _START_DATE = f"{datetime.now().year - 8}-01-01"
@@ -107,17 +111,19 @@ class DataFetcher:
     def _fetch_yfinance(self, ticker: str) -> pd.DataFrame:
         print(f"[Fetcher] yfinance downloading {ticker}...")
         raw = pd.DataFrame()
-        for attempt in range(3):
-            try:
-                t = yf.Ticker(ticker)
-                raw = t.history(start=_START_DATE, auto_adjust=True, timeout=10)
-                break  # empty = ticker not found, no point retrying
-            except Exception as e:
-                print(f"[Fetcher] yfinance attempt {attempt + 1} failed: {e}")
-                if attempt < 2:
-                    time.sleep(attempt + 1)
-                else:
-                    raise
+        with _yf_lock:
+            for attempt in range(5):
+                try:
+                    t = yf.Ticker(ticker)
+                    raw = t.history(start=_START_DATE, auto_adjust=True, timeout=15)
+                    break  # empty = ticker not found, no point retrying
+                except Exception as e:
+                    wait = (attempt + 1) * 5
+                    print(f"[Fetcher] yfinance attempt {attempt + 1} failed: {e} — retry in {wait}s")
+                    if attempt < 4:
+                        time.sleep(wait)
+                    else:
+                        return pd.DataFrame()
 
         if raw.empty:
             return pd.DataFrame()

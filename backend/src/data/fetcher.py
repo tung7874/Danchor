@@ -138,8 +138,11 @@ class DataFetcher:
         if self._finmind is not None:
             df = self._fetch_finmind(ticker)
         if not self._is_valid_df(df):
-            print(f"[Fetcher] FinMind invalid → fallback to yfinance ({ticker})")
-            df = self._fetch_yfinance(ticker)
+            try:
+                df = self._fetch_yfinance(ticker)
+            except Exception as e:
+                print(f"[Fetcher] yfinance error for {ticker}: {e}")
+                df = pd.DataFrame()
         if not self._is_valid_df(df):
             print(f"[Fetcher] No valid data for {ticker}")
             return pd.DataFrame()

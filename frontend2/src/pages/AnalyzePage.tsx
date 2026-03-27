@@ -183,7 +183,7 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
                 </div>
                 <div>
                   <p className="text-[#8E8E93] text-xs">5日動能</p>
-                  <p className={`text-xs font-mono ${data.state.raw.mom_5_pct >= 0 ? "text-[#00C851]" : "text-[#FF4444]"}`}>
+                  <p className={`text-xs font-mono ${data.state.raw.mom_5_pct >= 0 ? "text-[#FF4444]" : "text-[#00C851]"}`}>
                     {data.state.raw.mom_5_pct > 0 ? "+" : ""}{data.state.raw.mom_5_pct}%
                   </p>
                 </div>
@@ -229,14 +229,14 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[#8E8E93] text-xs">扣費後中位數</span>
-                  <span className={`text-sm font-mono font-bold ${netP50 >= 0 ? "text-[#00C851]" : "text-[#FF4444]"}`}>
+                  <span className={`text-sm font-mono font-bold ${netP50 >= 0 ? "text-[#FF4444]" : "text-[#00C851]"}`}>
                     {netP50 > 0 ? "+" : ""}{netP50}%
                   </span>
                 </div>
                 {profitFactor !== null && (
                   <div className="flex justify-between">
                     <span className="text-[#8E8E93] text-xs">盈虧比</span>
-                    <span className={`text-sm font-mono font-bold ${profitFactor >= 1 ? "text-[#00C851]" : "text-[#FF4444]"}`}>
+                    <span className={`text-sm font-mono font-bold ${profitFactor >= 1 ? "text-[#FF4444]" : "text-[#00C851]"}`}>
                       {profitFactor}
                     </span>
                   </div>
@@ -275,14 +275,14 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-[#2C2C2E] rounded-xl p-3 text-center">
                     <p className="text-[#8E8E93] text-[11px] mb-1">上升市場均值</p>
-                    <p className={`text-[17px] font-bold font-mono ${data.state_dependency.up_return >= 0 ? "text-[#00C851]" : "text-[#FF4444]"}`}>
+                    <p className={`text-[17px] font-bold font-mono ${data.state_dependency.up_return >= 0 ? "text-[#FF4444]" : "text-[#00C851]"}`}>
                       {data.state_dependency.up_return > 0 ? "+" : ""}{data.state_dependency.up_return}%
                     </p>
                     <p className="text-[#636366] text-[10px] mt-0.5">N={data.state_dependency.up_count}</p>
                   </div>
                   <div className="bg-[#2C2C2E] rounded-xl p-3 text-center">
                     <p className="text-[#8E8E93] text-[11px] mb-1">下跌市場均值</p>
-                    <p className={`text-[17px] font-bold font-mono ${data.state_dependency.down_return >= 0 ? "text-[#00C851]" : "text-[#FF4444]"}`}>
+                    <p className={`text-[17px] font-bold font-mono ${data.state_dependency.down_return >= 0 ? "text-[#FF4444]" : "text-[#00C851]"}`}>
                       {data.state_dependency.down_return > 0 ? "+" : ""}{data.state_dependency.down_return}%
                     </p>
                     <p className="text-[#636366] text-[10px] mt-0.5">N={data.state_dependency.down_count}</p>
@@ -300,7 +300,7 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
                     return (
                       <div key={p.label} className="flex items-center justify-between">
                         <span className="text-[#8E8E93] text-[13px] w-20">{p.label}</span>
-                        <span className="text-[13px] font-mono font-semibold" style={{ color: p.mean >= 0 ? "#00C851" : "#FF4444" }}>
+                        <span className="text-[13px] font-mono font-semibold" style={{ color: p.mean >= 0 ? "#FF4444" : "#00C851" }}>
                           {p.mean > 0 ? "+" : ""}{p.mean}%
                         </span>
                         <span className="text-[#636366] text-[11px] w-12 text-right">{p.count} 次</span>
@@ -331,13 +331,11 @@ function DistributionBar({ p25, p50, p75 }: { p25: number; p50: number; p75: num
   return (
     <div className="relative h-12 flex items-center">
       <div className="absolute inset-x-0 h-2 rounded-full bg-[#2A2A2A]" />
-      <div className="absolute h-2 rounded-l-full bg-[#FF4444]/30" style={{ left: `${toX(min)}%`, width: `${toX(0) - toX(min)}%` }} />
-      <div className="absolute h-2 rounded-r-full bg-[#00C851]/30" style={{ left: `${toX(0)}%`, width: `${toX(max) - toX(0)}%` }} />
       <div className="absolute h-3 rounded-full bg-white/20" style={{ left: `${toX(p25)}%`, width: `${toX(p75) - toX(p25)}%` }} />
       <div className="absolute w-px h-4 bg-[#444]" style={{ left: `${toX(0)}%` }} />
-      <div className="absolute w-2.5 h-2.5 rounded-full bg-[#FF4444]" style={{ left: `${toX(p25)}%`, transform: "translateX(-50%)" }} />
+      <div className="absolute w-2.5 h-2.5 rounded-full bg-[#00C851]" style={{ left: `${toX(p25)}%`, transform: "translateX(-50%)" }} />
       <div className="absolute w-4 h-4 rounded-full bg-white border-2 border-[#0D0D0D] z-10" style={{ left: `${toX(p50)}%`, transform: "translateX(-50%)" }} />
-      <div className="absolute w-2.5 h-2.5 rounded-full bg-[#00C851]" style={{ left: `${toX(p75)}%`, transform: "translateX(-50%)" }} />
+      <div className="absolute w-2.5 h-2.5 rounded-full bg-[#FF4444]" style={{ left: `${toX(p75)}%`, transform: "translateX(-50%)" }} />
     </div>
   );
 }
@@ -346,7 +344,7 @@ function StatBox({ label, sub, value, highlight, ciLow, ciHigh }: {
   label: string; sub?: string; value: number; highlight?: boolean;
   ciLow?: number; ciHigh?: number;
 }) {
-  const color = value > 0 ? "#00C851" : value < 0 ? "#FF4444" : "#888";
+  const color = value > 0 ? "#FF4444" : value < 0 ? "#00C851" : "#888";
   return (
     <div className={`rounded-xl p-3 text-center ${highlight ? "bg-white/5 border border-white/10" : "bg-[#2C2C2E]"}`}>
       <p className="text-[#8E8E93] text-[11px]">{label}</p>

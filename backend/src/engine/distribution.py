@@ -1,26 +1,41 @@
 import numpy as np
 
 
-def analyze_distribution(returns):
+class DistributionCalculator:
     """
-    returns: list[float]
+    向下相容舊系統接口：
+    main.py 仍可使用 DistributionCalculator().calculate()
+    """
+
+    def __init__(self, min_samples=5):
+        self.min_samples = min_samples
+
+    def calculate(self, returns):
+        return analyze_distribution(returns, self.min_samples)
+
+
+def analyze_distribution(returns, min_samples=5):
+    """
+    returns: list[float] | np.ndarray
     永不 crash，保證回傳結構
     """
 
-    # 🔥 1️⃣ 基本防呆
+    # === 1️⃣ 基本防呆 ===
     if returns is None:
         returns = []
 
-    # 轉 numpy
-    returns = np.array(returns, dtype=float)
+    try:
+        returns = np.array(returns, dtype=float)
+    except Exception:
+        returns = np.array([])
 
     # 移除 NaN / inf
     returns = returns[np.isfinite(returns)]
 
     sample_size = len(returns)
 
-    # 🔥 2️⃣ 樣本不足（核心）
-    if sample_size < 5:
+    # === 2️⃣ 樣本不足 ===
+    if sample_size < min_samples:
         return {
             "valid": False,
             "confidence": "low",
@@ -33,7 +48,7 @@ def analyze_distribution(returns):
             "win_rate": None,
         }
 
-    # 🔥 3️⃣ 正常計算（安全）
+    # === 3️⃣ 正常統計 ===
     try:
         p25 = float(np.percentile(returns, 25))
         p50 = float(np.percentile(returns, 50))
@@ -55,10 +70,15 @@ def analyze_distribution(returns):
         }
 
     except Exception as e:
-        # 🔥 4️⃣ 最終保險（永不 crash）
+        # === 4️⃣ 最終保險 ===
         return {
             "valid": False,
             "confidence": "low",
             "reason": f"calculation_error: {str(e)}",
             "sample_size": sample_size,
+            "p25": None,
+            "p50": None,
+            "p75": None,
+            "mean": None,
+            "win_rate": None,
         }

@@ -283,7 +283,7 @@ def _build_dependency(df, state: str, horizon: int) -> dict | None:
     result = dep_analyzer.analyze(df, state, horizon)
     if result is None:
         return None
-    result["text"] = state_dependency_text(result["label"])
+    result["text"] = state_dependency_text(result["label"], result.get("direction", "多"))
     return result
 
 

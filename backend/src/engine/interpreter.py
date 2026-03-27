@@ -116,18 +116,15 @@ def generate_analysis_text(
     risk_text = TEXT_MAP["risk"][risk]
     dep_text  = TEXT_MAP["dependency"][dependency]
 
+    # 用句號分隔三個邏輯段，避免「但...但...」的連接詞衝突
     if risk == "high":
-        # 高風險：轉折句，突出風險
-        return f"雖然{exp_text}，但{risk_text}，{dep_text}。"
+        return f"{exp_text}。{risk_text}。{dep_text}。"
     elif dependency == "high":
-        # 高依賴：限制句
-        return f"{exp_text}，但{dep_text}，{risk_text}。"
+        return f"{exp_text}。{dep_text}。{risk_text}。"
     elif dependency == "mid":
-        # 中依賴：輕度限制
-        return f"{exp_text}，{dep_text}，{risk_text}。"
+        return f"{exp_text}。{dep_text}。{risk_text}。"
     else:
-        # 正常：正向陳述
-        return f"{exp_text}，{risk_text}，{dep_text}。"
+        return f"{exp_text}。{risk_text}。{dep_text}。"
 
 
 # ─── 其他輸出函數（維持原有）────────────────────────────────
@@ -168,12 +165,19 @@ def stability_text(label: str) -> str:
     }.get(label, "")
 
 
-def state_dependency_text(label: str) -> str:
-    return {
-        "高度依賴": "此統計結果與市場走勢具有明顯關聯，在上升環境中表現較佳，於轉弱環境中效果可能降低",
-        "中度依賴": "此結果在市場上升時表現較佳，市場轉弱時效果可能下降",
-        "低依賴":   "此條件在不同市場環境下表現相對一致，未明顯依賴市場方向",
-    }.get(label, "資料不足，無法判斷")
+def state_dependency_text(label: str, direction: str = "多") -> str:
+    if label == "低依賴":
+        return "此條件在不同市場環境下表現相對一致，未明顯依賴市場方向"
+    if direction == "多":
+        return {
+            "高度依賴": "此統計結果與市場走勢具有明顯關聯，在上升環境中表現較佳，於轉弱環境中效果可能降低",
+            "中度依賴": "此結果在市場上升時表現相對較佳，於下跌環境中優勢較不明顯",
+        }.get(label, "")
+    else:  # direction == "空"：下跌市場表現更好
+        return {
+            "高度依賴": "此統計結果在市場轉弱時表現明顯較佳，於上升環境中優勢可能減弱，受整體環境影響顯著",
+            "中度依賴": "此條件在市場轉弱時表現相對較佳，於上升環境中優勢較不明顯",
+        }.get(label, "")
 
 
 def action_suggestion(p25: float, p50: float, stability_label: str) -> list:

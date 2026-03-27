@@ -57,7 +57,7 @@ class DataFetcher:
         for attempt in range(3):
             try:
                 t = yf.Ticker(ticker)
-                df = t.history(start="2010-01-01", auto_adjust=True)
+                df = t.history(start="2010-01-01", auto_adjust=True, timeout=6)
                 break  # empty = ticker not found, no point retrying
             except Exception as e:
                 print(f"[Fetcher] Attempt {attempt + 1} failed: {e}")

@@ -332,8 +332,8 @@ function DistributionBar({ p25, p50, p75 }: { p25: number; p50: number; p75: num
     <div className="relative h-12 flex items-center">
       <div className="absolute inset-x-0 h-2 rounded-full bg-[#2A2A2A]" />
       <div className="absolute h-3 rounded-full bg-white/20" style={{ left: `${toX(p25)}%`, width: `${toX(p75) - toX(p25)}%` }} />
-      <div className="absolute w-px h-4 bg-[#444]" style={{ left: `${toX(0)}%` }} />
-      <div className="absolute w-[2px] h-6 bg-white rounded-full z-10" style={{ left: `${toX(p50)}%`, transform: "translateX(-50%)" }} />
+      <div className="absolute w-2.5 h-2.5 rounded-full border-2 border-white bg-transparent z-10" style={{ left: `${toX(0)}%`, transform: "translateX(-50%)" }} />
+      <div className="absolute w-2.5 h-2.5 rounded-full bg-white z-20" style={{ left: `${toX(p50)}%`, transform: "translateX(-50%)" }} />
     </div>
   );
 }

@@ -215,9 +215,9 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
               <DistributionBar p25={p25} p50={p50} p75={p75} />
 
               <div className="grid grid-cols-3 gap-3 mt-4">
-                <StatBox label="P25" sub="較差情況" value={p25} />
+                <StatBox label="25%" sub="較差情況" value={p25} />
                 <StatBox label="50%" sub="中位報酬" value={p50} highlight ciLow={ciLow} ciHigh={ciHigh} />
-                <StatBox label="P75" sub="較好情況" value={p75} />
+                <StatBox label="75%" sub="較好情況" value={p75} />
               </div>
 
               <div className="mt-3 pt-3 border-t border-white/[0.06] space-y-2">
@@ -346,7 +346,7 @@ function StatBox({ label, sub, value, highlight, ciLow, ciHigh }: {
   return (
     <div className={`rounded-xl p-3 text-center ${highlight ? "bg-white/5 border border-white/10" : "bg-[#2C2C2E]"}`}>
       {sub && <p className="text-[#636366] text-[10px] mb-1">{sub}</p>}
-      <p className={highlight ? "text-white text-[13px] font-semibold" : "text-[#8E8E93] text-[11px]"}>{label}</p>
+      <p className="text-white text-[13px] font-semibold">{label}</p>
       <p className="font-mono font-bold text-base" style={{ color }}>
         {value > 0 ? "+" : ""}{value}%
       </p>

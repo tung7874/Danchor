@@ -3,7 +3,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 from datetime import date, datetime
-import time
 import traceback
 import threading
 import pandas as pd
@@ -26,27 +25,6 @@ from src.engine.state_dependency import StateDependencyAnalyzer
 app = FastAPI(title="Decision Anchor API", version="1.0.0")
 
 
-@app.on_event("startup")
-async def startup_warmup():
-    def warm_one(ticker):
-        try:
-            _get_df(ticker)
-            code = ticker.replace(".TW", "")
-            for horizon in [5, 10, 20]:
-                try:
-                    analyze(AnalyzeRequest(asset_code=code, holding_horizon_days=horizon))
-                except Exception:
-                    pass
-            print(f"[Warmup] {ticker} ready")
-        except Exception as e:
-            print(f"[Warmup] {ticker} failed: {e}")
-
-    def warm_all():
-        for ticker in _POPULAR_TICKERS:
-            warm_one(ticker)
-            time.sleep(1.5)  # avoid yfinance rate limit during warmup
-
-    threading.Thread(target=warm_all, daemon=True).start()
 
 
 app.add_middleware(

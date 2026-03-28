@@ -81,6 +81,39 @@ class DataFetcher:
             return False
         return all(c in df.columns for c in ["open", "high", "low", "close", "volume"])
 
+    # ── FinMind REST API (primary — single request, all history) ─
+    def _fetch_finmind_rest(self, ticker: str) -> pd.DataFrame:
+        stock_id = self._stock_id(ticker)
+        print(f"[Fetcher] FinMind downloading {stock_id}...")
+        params = {
+            "dataset": "TaiwanStockPrice",
+            "data_id": stock_id,
+            "start_date": f"{_START_YEAR}-01-01",
+        }
+        token = os.environ.get("FINMIND_TOKEN")
+        if token:
+            params["token"] = token
+        try:
+            r = requests.get(
+                "https://api.finmindtrade.com/api/v4/data",
+                params=params,
+                timeout=30,
+            )
+            data = r.json()
+            if data.get("status") != 200 or not data.get("data"):
+                print(f"[Fetcher] FinMind no data: status={data.get('status')}")
+                return pd.DataFrame()
+            df = pd.DataFrame(data["data"])
+            df["date"] = pd.to_datetime(df["date"])
+            df = df.rename(columns={"max": "high", "min": "low", "Trading_Volume": "volume"})
+            df = df[["date", "open", "high", "low", "close", "volume"]].set_index("date").sort_index()
+            df = df[df["close"] > 0].dropna()
+            print(f"[Fetcher] FinMind OK: {len(df)} rows")
+            return df
+        except Exception as e:
+            print(f"[Fetcher] FinMind REST failed: {e}")
+            return pd.DataFrame()
+
     # ── TWSE (上市) — 使用舊版穩定 API ──────────────────────────
     def _fetch_twse(self, ticker: str) -> pd.DataFrame:
         stock_id = self._stock_id(ticker)
@@ -238,8 +271,13 @@ class DataFetcher:
         is_tw  = ticker.endswith(".TW") and not is_otc
 
         df = pd.DataFrame()
-        if is_tw:
+        # FinMind REST: single request, covers both TWSE and TPEx
+        if is_tw or is_otc:
+            df = self._fetch_finmind_rest(ticker)
+        # TWSE monthly fallback for listed stocks
+        if not self._is_valid_df(df) and is_tw:
             df = self._fetch_twse(ticker)
+        # TPEx fallback for OTC stocks
         if not self._is_valid_df(df) and is_otc:
             df = self._fetch_tpex(ticker)
         if not self._is_valid_df(df):

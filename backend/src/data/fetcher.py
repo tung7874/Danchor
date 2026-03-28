@@ -72,45 +72,46 @@ class DataFetcher:
             return False
         return all(c in df.columns for c in ["open", "high", "low", "close", "volume"])
 
-    # ── TWSE OpenAPI (上市) ──────────────────────────────────────
+    # ── TWSE (上市) — 使用舊版穩定 API ──────────────────────────
     def _fetch_twse(self, ticker: str) -> pd.DataFrame:
         stock_id = self._stock_id(ticker)
         print(f"[Fetcher] TWSE downloading {stock_id}...")
 
         def fetch_month(ym):
             y, m = ym
-            date_str = f"{y}{m:02d}01"
             try:
                 r = _TWSE_SESSION.get(
-                    "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY",
-                    params={"stockNo": stock_id, "date": date_str},
+                    "https://www.twse.com.tw/exchangeReport/STOCK_DAY",
+                    params={"response": "json", "date": f"{y}{m:02d}01", "stockNo": stock_id},
                     timeout=10,
                 )
                 if r.ok:
-                    return r.json()
+                    data = r.json()
+                    if data.get("stat") == "OK":
+                        return data.get("data", [])
             except Exception:
                 pass
             return []
 
         months = _gen_months(_START_YEAR)
-        with ThreadPoolExecutor(max_workers=12) as pool:
+        with ThreadPoolExecutor(max_workers=8) as pool:
             results = list(pool.map(fetch_month, months))
 
         rows = []
         for month_data in results:
-            if not isinstance(month_data, list):
-                continue
             for row in month_data:
                 try:
-                    parts = row["Date"].split("/")
+                    # row: [民國日期, 成交股數, 成交金額, 開盤, 最高, 最低, 收盤, 漲跌, 成交筆數]
+                    parts = row[0].split("/")
                     date = pd.Timestamp(f"{int(parts[0]) + 1911}-{parts[1]}-{parts[2]}")
+                    def clean(v): return float(str(v).replace(",", "").replace("--", "0") or 0)
                     rows.append({
                         "date":   date,
-                        "open":   float(row["OpeningPrice"].replace(",", "")),
-                        "high":   float(row["HighestPrice"].replace(",", "")),
-                        "low":    float(row["LowestPrice"].replace(",", "")),
-                        "close":  float(row["ClosingPrice"].replace(",", "")),
-                        "volume": int(row["TradeVolume"].replace(",", "")),
+                        "open":   clean(row[3]),
+                        "high":   clean(row[4]),
+                        "low":    clean(row[5]),
+                        "close":  clean(row[6]),
+                        "volume": int(str(row[1]).replace(",", "") or 0),
                     })
                 except Exception:
                     continue
@@ -118,52 +119,50 @@ class DataFetcher:
         if not rows:
             return pd.DataFrame()
 
-        df = pd.DataFrame(rows).set_index("date").sort_index().dropna()
+        df = pd.DataFrame(rows).set_index("date").sort_index()
+        df = df[df["close"] > 0].dropna()
         print(f"[Fetcher] TWSE OK: {len(df)} rows")
         return df
 
-    # ── TPEx OpenAPI (上櫃) ──────────────────────────────────────
+    # ── TPEx (上櫃) — 舊版穩定 API ───────────────────────────────
     def _fetch_tpex(self, ticker: str) -> pd.DataFrame:
         stock_id = self._stock_id(ticker)
         print(f"[Fetcher] TPEx downloading {stock_id}...")
 
         def fetch_month(ym):
             y, m = ym
-            roc_year = y - 1911
-            date_str = f"{roc_year}/{m:02d}"
+            roc = y - 1911
             try:
                 r = _TWSE_SESSION.get(
-                    "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes",
-                    params={"date": date_str, "code": stock_id},
+                    "https://www.tpex.org.tw/web/stock/aftertrading/daily_trading_info/st43_download.php",
+                    params={"l": "zh-tw", "d": f"{roc}/{m:02d}", "s": stock_id, "download": "json"},
                     timeout=10,
                 )
                 if r.ok:
-                    return r.json()
+                    data = r.json()
+                    return data.get("aaData", [])
             except Exception:
                 pass
             return []
 
         months = _gen_months(_START_YEAR)
-        with ThreadPoolExecutor(max_workers=12) as pool:
+        with ThreadPoolExecutor(max_workers=8) as pool:
             results = list(pool.map(fetch_month, months))
 
         rows = []
         for month_data in results:
-            if not isinstance(month_data, list):
-                continue
             for row in month_data:
                 try:
-                    parts = row.get("Date", "").split("/")
-                    if len(parts) != 3:
-                        continue
+                    parts = row[0].split("/")
                     date = pd.Timestamp(f"{int(parts[0]) + 1911}-{parts[1]}-{parts[2]}")
+                    def clean(v): return float(str(v).replace(",", "").replace("--", "0") or 0)
                     rows.append({
                         "date":   date,
-                        "open":   float(str(row.get("Open", "0")).replace(",", "") or 0),
-                        "high":   float(str(row.get("High", "0")).replace(",", "") or 0),
-                        "low":    float(str(row.get("Low", "0")).replace(",", "") or 0),
-                        "close":  float(str(row.get("Close", "0")).replace(",", "") or 0),
-                        "volume": int(str(row.get("Volume", "0")).replace(",", "") or 0),
+                        "open":   clean(row[4]),
+                        "high":   clean(row[5]),
+                        "low":    clean(row[6]),
+                        "close":  clean(row[7]),
+                        "volume": int(str(row[1]).replace(",", "") or 0),
                     })
                 except Exception:
                     continue
@@ -171,7 +170,8 @@ class DataFetcher:
         if not rows:
             return pd.DataFrame()
 
-        df = pd.DataFrame(rows).set_index("date").sort_index().dropna()
+        df = pd.DataFrame(rows).set_index("date").sort_index()
+        df = df[df["close"] > 0].dropna()
         print(f"[Fetcher] TPEx OK: {len(df)} rows")
         return df
 

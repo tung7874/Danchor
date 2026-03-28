@@ -1,12 +1,16 @@
 import time
 import threading
 import requests
+import urllib3
 import yfinance as yf
 import pandas as pd
 import sqlite3
 import os
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
+
+# Suppress SSL warnings for TWSE/TPEx certificates (they have known cert issues)
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 _yf_lock = threading.Lock()
 _START_YEAR = datetime.now().year - 8  # rolling 8-year window
@@ -15,7 +19,12 @@ _data_dir = os.environ.get("DATA_DIR", os.path.join(os.path.dirname(__file__), "
 DB_PATH = os.path.join(_data_dir, "market_data.db")
 
 _TWSE_SESSION = requests.Session()
-_TWSE_SESSION.headers.update({"Accept": "application/json", "User-Agent": "Mozilla/5.0"})
+_TWSE_SESSION.headers.update({
+    "Accept": "application/json",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "Referer": "https://www.twse.com.tw/",
+})
+_TWSE_SESSION.verify = False  # TWSE/TPEx certs have Missing Subject Key Identifier issues
 
 
 def _gen_months(start_year: int) -> list:
@@ -79,22 +88,26 @@ class DataFetcher:
 
         def fetch_month(ym):
             y, m = ym
-            try:
-                r = _TWSE_SESSION.get(
-                    "https://www.twse.com.tw/exchangeReport/STOCK_DAY",
-                    params={"response": "json", "date": f"{y}{m:02d}01", "stockNo": stock_id},
-                    timeout=10,
-                )
-                if r.ok:
-                    data = r.json()
-                    if data.get("stat") == "OK":
-                        return data.get("data", [])
-            except Exception:
-                pass
+            for attempt in range(3):
+                try:
+                    r = _TWSE_SESSION.get(
+                        "https://www.twse.com.tw/exchangeReport/STOCK_DAY",
+                        params={"response": "json", "date": f"{y}{m:02d}01", "stockNo": stock_id},
+                        timeout=15,
+                    )
+                    if r.ok:
+                        data = r.json()
+                        if data.get("stat") == "OK":
+                            return data.get("data", [])
+                        return []  # stat != OK means no data for that month
+                    time.sleep(1 + attempt)
+                except Exception:
+                    if attempt < 2:
+                        time.sleep(2 + attempt * 2)
             return []
 
         months = _gen_months(_START_YEAR)
-        with ThreadPoolExecutor(max_workers=8) as pool:
+        with ThreadPoolExecutor(max_workers=4) as pool:
             results = list(pool.map(fetch_month, months))
 
         rows = []
@@ -124,7 +137,7 @@ class DataFetcher:
         print(f"[Fetcher] TWSE OK: {len(df)} rows")
         return df
 
-    # ── TPEx (上櫃) — 舊版穩定 API ───────────────────────────────
+    # ── TPEx (上櫃) — POST API (GET endpoint redirects, new response format) ──
     def _fetch_tpex(self, ticker: str) -> pd.DataFrame:
         stock_id = self._stock_id(ticker)
         print(f"[Fetcher] TPEx downloading {stock_id}...")
@@ -132,27 +145,43 @@ class DataFetcher:
         def fetch_month(ym):
             y, m = ym
             roc = y - 1911
-            try:
-                r = _TWSE_SESSION.get(
-                    "https://www.tpex.org.tw/web/stock/aftertrading/daily_trading_info/st43_download.php",
-                    params={"l": "zh-tw", "d": f"{roc}/{m:02d}", "s": stock_id, "download": "json"},
-                    timeout=10,
-                )
-                if r.ok:
-                    data = r.json()
-                    return data.get("aaData", [])
-            except Exception:
-                pass
+            for attempt in range(3):
+                try:
+                    # Must use POST; GET 302-redirects to non-functional URL
+                    # New response format: {"tables": [{"data": [...]}], ...}
+                    # Old aaData format no longer returned
+                    r = _TWSE_SESSION.post(
+                        "https://www.tpex.org.tw/web/stock/aftertrading/daily_trading_info/st43_download.php",
+                        data={"l": "zh-tw", "d": f"{roc}/{m:02d}", "s": stock_id, "download": "json"},
+                        timeout=15,
+                    )
+                    if r.ok:
+                        data = r.json()
+                        # Try new format first: tables[0].data
+                        tables = data.get("tables", [])
+                        if tables and tables[0].get("data"):
+                            return tables[0]["data"]
+                        # Legacy format fallback
+                        if data.get("aaData"):
+                            return data["aaData"]
+                        return []
+                    time.sleep(1 + attempt)
+                except Exception:
+                    if attempt < 2:
+                        time.sleep(2 + attempt * 2)
             return []
 
         months = _gen_months(_START_YEAR)
-        with ThreadPoolExecutor(max_workers=8) as pool:
+        with ThreadPoolExecutor(max_workers=4) as pool:
             results = list(pool.map(fetch_month, months))
 
         rows = []
         for month_data in results:
             for row in month_data:
                 try:
+                    # New format fields: [日期, 成交張數, 成交仟元, ?, 開盤, 最高, 最低, 收盤, 漲跌, 筆數]
+                    # Old aaData fields: [日期, 成交股數, 成交金額, ?, 開盤, 最高, 最低, 收盤, 漲跌, 筆數]
+                    # Both formats share the same column positions
                     parts = row[0].split("/")
                     date = pd.Timestamp(f"{int(parts[0]) + 1911}-{parts[1]}-{parts[2]}")
                     def clean(v): return float(str(v).replace(",", "").replace("--", "0") or 0)

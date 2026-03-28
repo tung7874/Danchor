@@ -93,6 +93,9 @@ class DataFetcher:
         token = os.environ.get("FINMIND_TOKEN")
         if token:
             params["token"] = token
+            print(f"[Fetcher] FinMind using token (user: tung7874)")
+        else:
+            print("[Fetcher] FinMind using anonymous (no token)")
         try:
             r = requests.get(
                 "https://api.finmindtrade.com/api/v4/data",

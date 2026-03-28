@@ -1,63 +1,52 @@
 import time
 import threading
+import requests
 import yfinance as yf
 import pandas as pd
 import sqlite3
 import os
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
 
-# Serialize yfinance downloads to avoid concurrent rate-limit hits
 _yf_lock = threading.Lock()
-
-# Rolling 8-year window — recalculated at import time
-_START_DATE = f"{datetime.now().year - 8}-01-01"
-
-try:
-    from FinMind.data import DataLoader as _FinMindLoader
-    _FINMIND_AVAILABLE = True
-except ImportError:
-    _FINMIND_AVAILABLE = False
+_START_YEAR = datetime.now().year - 8  # rolling 8-year window
 
 _data_dir = os.environ.get("DATA_DIR", os.path.join(os.path.dirname(__file__), "../../data/processed"))
 DB_PATH = os.path.join(_data_dir, "market_data.db")
-_FINMIND_TOKEN = os.environ.get("FINMIND_TOKEN", "")
+
+_TWSE_SESSION = requests.Session()
+_TWSE_SESSION.headers.update({"Accept": "application/json", "User-Agent": "Mozilla/5.0"})
+
+
+def _gen_months(start_year: int) -> list:
+    now = datetime.now()
+    months = []
+    y, m = start_year, 1
+    while (y, m) <= (now.year, now.month):
+        months.append((y, m))
+        m += 1
+        if m > 12:
+            m, y = 1, y + 1
+    return months
 
 
 class DataFetcher:
     def __init__(self):
         os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
         self._init_db()
-        self._finmind = None
-        if _FINMIND_AVAILABLE:
-            try:
-                self._finmind = _FinMindLoader()
-                if _FINMIND_TOKEN:
-                    self._finmind.login_by_token(api_token=_FINMIND_TOKEN)
-                    print("[Fetcher] FinMind logged in with token")
-                else:
-                    print("[Fetcher] FinMind ready (no token, free tier)")
-            except Exception as e:
-                print(f"[Fetcher] FinMind init failed: {e}")
-                self._finmind = None
 
     def _init_db(self):
         with sqlite3.connect(DB_PATH) as conn:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS daily_prices (
-                    ticker TEXT,
-                    date TEXT,
-                    open REAL,
-                    high REAL,
-                    low REAL,
-                    close REAL,
-                    volume INTEGER,
+                    ticker TEXT, date TEXT,
+                    open REAL, high REAL, low REAL, close REAL, volume INTEGER,
                     PRIMARY KEY (ticker, date)
                 )
             """)
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS fetch_log (
-                    ticker TEXT PRIMARY KEY,
-                    last_fetched TEXT
+                    ticker TEXT PRIMARY KEY, last_fetched TEXT
                 )
             """)
 
@@ -73,89 +62,166 @@ class DataFetcher:
             ).fetchone()
             if not row:
                 return False
-            last = datetime.fromisoformat(row[0])
-            return (datetime.now() - last).total_seconds() < 86400
+            return (datetime.now() - datetime.fromisoformat(row[0])).total_seconds() < 86400
 
     def _stock_id(self, ticker: str) -> str:
         return ticker.split(".")[0]
 
     def _is_valid_df(self, df: pd.DataFrame) -> bool:
-        if df is None or df.empty:
+        if df is None or df.empty or len(df) < 100:
             return False
-        if len(df) < 100:
-            return False
-        required_cols = ["open", "high", "low", "close", "volume"]
-        for col in required_cols:
-            if col not in df.columns:
-                return False
-        return True
+        return all(c in df.columns for c in ["open", "high", "low", "close", "volume"])
 
-    def _fetch_finmind(self, ticker: str) -> pd.DataFrame:
+    # ── TWSE OpenAPI (上市) ──────────────────────────────────────
+    def _fetch_twse(self, ticker: str) -> pd.DataFrame:
         stock_id = self._stock_id(ticker)
-        try:
-            print(f"[Fetcher] FinMind downloading {stock_id}...")
-            raw = self._finmind.taiwan_stock_daily(stock_id=stock_id, start_date=_START_DATE)
-            if raw is None or raw.empty:
-                return pd.DataFrame()
-            raw = raw[["date", "open", "max", "min", "close", "Trading Volume"]].copy()
-            raw.columns = ["date", "open", "high", "low", "close", "volume"]
-            raw["date"] = pd.to_datetime(raw["date"])
-            raw = raw.set_index("date").sort_index()
-            raw = raw.dropna()
-            print(f"[Fetcher] FinMind OK: {len(raw)} rows")
-            return raw
-        except Exception as e:
-            print(f"[Fetcher] FinMind failed for {stock_id}: {e}")
+        print(f"[Fetcher] TWSE downloading {stock_id}...")
+
+        def fetch_month(ym):
+            y, m = ym
+            date_str = f"{y}{m:02d}01"
+            try:
+                r = _TWSE_SESSION.get(
+                    "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY",
+                    params={"stockNo": stock_id, "date": date_str},
+                    timeout=10,
+                )
+                if r.ok:
+                    return r.json()
+            except Exception:
+                pass
+            return []
+
+        months = _gen_months(_START_YEAR)
+        with ThreadPoolExecutor(max_workers=12) as pool:
+            results = list(pool.map(fetch_month, months))
+
+        rows = []
+        for month_data in results:
+            if not isinstance(month_data, list):
+                continue
+            for row in month_data:
+                try:
+                    parts = row["Date"].split("/")
+                    date = pd.Timestamp(f"{int(parts[0]) + 1911}-{parts[1]}-{parts[2]}")
+                    rows.append({
+                        "date":   date,
+                        "open":   float(row["OpeningPrice"].replace(",", "")),
+                        "high":   float(row["HighestPrice"].replace(",", "")),
+                        "low":    float(row["LowestPrice"].replace(",", "")),
+                        "close":  float(row["ClosingPrice"].replace(",", "")),
+                        "volume": int(row["TradeVolume"].replace(",", "")),
+                    })
+                except Exception:
+                    continue
+
+        if not rows:
             return pd.DataFrame()
 
+        df = pd.DataFrame(rows).set_index("date").sort_index().dropna()
+        print(f"[Fetcher] TWSE OK: {len(df)} rows")
+        return df
+
+    # ── TPEx OpenAPI (上櫃) ──────────────────────────────────────
+    def _fetch_tpex(self, ticker: str) -> pd.DataFrame:
+        stock_id = self._stock_id(ticker)
+        print(f"[Fetcher] TPEx downloading {stock_id}...")
+
+        def fetch_month(ym):
+            y, m = ym
+            roc_year = y - 1911
+            date_str = f"{roc_year}/{m:02d}"
+            try:
+                r = _TWSE_SESSION.get(
+                    "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_daily_close_quotes",
+                    params={"date": date_str, "code": stock_id},
+                    timeout=10,
+                )
+                if r.ok:
+                    return r.json()
+            except Exception:
+                pass
+            return []
+
+        months = _gen_months(_START_YEAR)
+        with ThreadPoolExecutor(max_workers=12) as pool:
+            results = list(pool.map(fetch_month, months))
+
+        rows = []
+        for month_data in results:
+            if not isinstance(month_data, list):
+                continue
+            for row in month_data:
+                try:
+                    parts = row.get("Date", "").split("/")
+                    if len(parts) != 3:
+                        continue
+                    date = pd.Timestamp(f"{int(parts[0]) + 1911}-{parts[1]}-{parts[2]}")
+                    rows.append({
+                        "date":   date,
+                        "open":   float(str(row.get("Open", "0")).replace(",", "") or 0),
+                        "high":   float(str(row.get("High", "0")).replace(",", "") or 0),
+                        "low":    float(str(row.get("Low", "0")).replace(",", "") or 0),
+                        "close":  float(str(row.get("Close", "0")).replace(",", "") or 0),
+                        "volume": int(str(row.get("Volume", "0")).replace(",", "") or 0),
+                    })
+                except Exception:
+                    continue
+
+        if not rows:
+            return pd.DataFrame()
+
+        df = pd.DataFrame(rows).set_index("date").sort_index().dropna()
+        print(f"[Fetcher] TPEx OK: {len(df)} rows")
+        return df
+
+    # ── yfinance fallback ────────────────────────────────────────
     def _fetch_yfinance(self, ticker: str) -> pd.DataFrame:
         print(f"[Fetcher] yfinance downloading {ticker}...")
-        raw = pd.DataFrame()
+        start_date = f"{_START_YEAR}-01-01"
         with _yf_lock:
-            for attempt in range(5):
+            for attempt in range(3):
                 try:
-                    t = yf.Ticker(ticker)
-                    raw = t.history(start=_START_DATE, auto_adjust=True, timeout=15)
-                    break  # empty = ticker not found, no point retrying
+                    raw = yf.Ticker(ticker).history(start=start_date, auto_adjust=True, timeout=15)
+                    break
                 except Exception as e:
                     wait = (attempt + 1) * 5
                     print(f"[Fetcher] yfinance attempt {attempt + 1} failed: {e} — retry in {wait}s")
-                    if attempt < 4:
+                    if attempt < 2:
                         time.sleep(wait)
                     else:
                         return pd.DataFrame()
 
         if raw.empty:
             return pd.DataFrame()
-
         if isinstance(raw.columns, pd.MultiIndex):
             raw.columns = raw.columns.get_level_values(0)
-
         raw = raw[["Open", "High", "Low", "Close", "Volume"]].copy()
         raw.columns = ["open", "high", "low", "close", "volume"]
         raw.index = pd.to_datetime(raw.index)
         raw.index.name = "date"
-        raw = raw.dropna()
         print(f"[Fetcher] yfinance OK: {len(raw)} rows")
-        return raw
+        return raw.dropna()
 
+    # ── orchestrator ─────────────────────────────────────────────
     def _download_and_store(self, ticker: str) -> pd.DataFrame:
+        is_otc = ticker.endswith(".TWO")
+        is_tw  = ticker.endswith(".TW") and not is_otc
+
         df = pd.DataFrame()
-        if self._finmind is not None:
-            df = self._fetch_finmind(ticker)
+        if is_tw:
+            df = self._fetch_twse(ticker)
+        if not self._is_valid_df(df) and is_otc:
+            df = self._fetch_tpex(ticker)
         if not self._is_valid_df(df):
-            try:
-                df = self._fetch_yfinance(ticker)
-            except Exception as e:
-                print(f"[Fetcher] yfinance error for {ticker}: {e}")
-                df = pd.DataFrame()
+            df = self._fetch_yfinance(ticker)
         if not self._is_valid_df(df):
             print(f"[Fetcher] No valid data for {ticker}")
             return pd.DataFrame()
 
         df = df.copy()
         df.reset_index(inplace=True)
-        df["date"] = df["date"].dt.strftime("%Y-%m-%d")
+        df["date"]   = df["date"].dt.strftime("%Y-%m-%d")
         df["ticker"] = ticker
 
         with sqlite3.connect(DB_PATH) as conn:
@@ -173,11 +239,9 @@ class DataFetcher:
     def _load_from_db(self, ticker: str) -> pd.DataFrame:
         with sqlite3.connect(DB_PATH) as conn:
             df = pd.read_sql(
-                "SELECT date, open, high, low, close, volume FROM daily_prices WHERE ticker = ? ORDER BY date",
-                conn,
-                params=(ticker,),
-                parse_dates=["date"],
-                index_col="date",
+                "SELECT date, open, high, low, close, volume FROM daily_prices "
+                "WHERE ticker = ? ORDER BY date",
+                conn, params=(ticker,), parse_dates=["date"], index_col="date",
             )
         df.columns = ["Open", "High", "Low", "Close", "Volume"]
         return df

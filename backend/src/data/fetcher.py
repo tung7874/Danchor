@@ -97,7 +97,7 @@ class DataFetcher:
             r = requests.get(
                 "https://api.finmindtrade.com/api/v4/data",
                 params=params,
-                timeout=30,
+                timeout=10,
             )
             data = r.json()
             if data.get("status") != 200 or not data.get("data"):
@@ -271,17 +271,18 @@ class DataFetcher:
         is_tw  = ticker.endswith(".TW") and not is_otc
 
         df = pd.DataFrame()
-        # FinMind REST: single request, covers both TWSE and TPEx
+        # FinMind REST: single request, fast (~1-2s if reachable)
         if is_tw or is_otc:
             df = self._fetch_finmind_rest(ticker)
-        # TWSE monthly fallback for listed stocks
-        if not self._is_valid_df(df) and is_tw:
-            df = self._fetch_twse(ticker)
-        # TPEx fallback for OTC stocks
-        if not self._is_valid_df(df) and is_otc:
-            df = self._fetch_tpex(ticker)
+        # yfinance: single request fallback (much faster than TWSE monthly)
         if not self._is_valid_df(df):
             df = self._fetch_yfinance(ticker)
+        # TWSE monthly: last resort for listed stocks (slow, 30+ requests)
+        if not self._is_valid_df(df) and is_tw:
+            df = self._fetch_twse(ticker)
+        # TPEx monthly: last resort for OTC stocks
+        if not self._is_valid_df(df) and is_otc:
+            df = self._fetch_tpex(ticker)
         if not self._is_valid_df(df):
             print(f"[Fetcher] No valid data for {ticker}")
             return pd.DataFrame()

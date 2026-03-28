@@ -23,6 +23,7 @@ type AnalysisResult = {
     consistency: number;
     positive_years: number;
     total_years: number;
+    yearly: { year: number; mean: number; median: number; count: number; std: number }[];
     periods: { label: string; mean: number; count: number }[];
   };
   confidence: string;
@@ -291,22 +292,38 @@ export default function AnalyzePage({ code, days, onBack }: Props) {
               </div>
             )}
 
-            {/* Periods */}
-            {data.stability.periods?.length > 0 && (
+            {/* Yearly breakdown */}
+            {data.stability.yearly?.length > 0 && (
               <div className="rounded-2xl bg-[#1C1C1E] p-5 animate-fade-up">
-                <h2 className="text-white font-semibold mb-4">分期表現</h2>
-                <div className="space-y-3">
-                  {data.stability.periods.map((p) => {
-                    return (
-                      <div key={p.label} className="flex items-center justify-between">
-                        <span className="text-[#8E8E93] text-[13px] w-20">{p.label}</span>
-                        <span className="text-[13px] font-mono font-semibold" style={{ color: p.mean >= 0 ? "#FF4444" : "#00C851" }}>
-                          {p.mean > 0 ? "+" : ""}{p.mean}%
-                        </span>
-                        <span className="text-[#636366] text-[11px] w-12 text-right">{p.count} 次</span>
+                <h2 className="text-white font-semibold mb-4">年度表現</h2>
+                <div className="space-y-2">
+                  {data.stability.yearly.map((y: { year: number; mean: number; count: number }) => (
+                    <div key={y.year} className="flex items-center gap-2">
+                      <span className="text-[#8E8E93] text-[13px] w-10 shrink-0">{y.year}</span>
+                      <div className="flex-1 relative h-5 flex items-center">
+                        <div className="absolute inset-0 flex items-center">
+                          <div className="w-full h-px bg-white/[0.06]" />
+                        </div>
+                        <div
+                          className="absolute h-3 rounded-sm"
+                          style={{
+                            background: y.mean >= 0 ? "#FF4444" : "#00C851",
+                            opacity: 0.7,
+                            left: y.mean >= 0 ? "50%" : undefined,
+                            right: y.mean < 0 ? "50%" : undefined,
+                            width: `${Math.min(Math.abs(y.mean) * 2.5, 50)}%`,
+                          }}
+                        />
                       </div>
-                    );
-                  })}
+                      <span
+                        className="text-[13px] font-mono font-semibold w-14 text-right shrink-0"
+                        style={{ color: y.mean >= 0 ? "#FF4444" : "#00C851" }}
+                      >
+                        {y.mean > 0 ? "+" : ""}{y.mean}%
+                      </span>
+                      <span className="text-[#636366] text-[11px] w-8 text-right shrink-0">{y.count}次</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
